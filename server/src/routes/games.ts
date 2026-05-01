@@ -1,14 +1,21 @@
-import express, { Request, Response } from 'express';
+import express, { Response } from 'express';
 import { allAsync, getAsync, runAsync } from '../database.js';
 import { Game, GameWithDetails, AttendanceWithPlayer, TeamWithPlayer } from '../types.js';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Get all games
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const games = await allAsync('SELECT * FROM games ORDER BY date DESC, time DESC') as Game[];
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
+    const games = await allAsync(
+      'SELECT * FROM games WHERE league_id = ? ORDER BY date DESC, time DESC',
+      [req.leagueId]
+    ) as Game[];
     res.json(games);
   } catch (error) {
     console.error('Get games error:', error);
@@ -17,9 +24,17 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // Get game by ID with details
-router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const game = await getAsync('SELECT * FROM games WHERE id = ?', [req.params.id]) as Game;
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
+    const game = await getAsync('SELECT * FROM games WHERE id = ? AND league_id = ?', [
+      req.params.id,
+      req.leagueId,
+    ]) as Game;
+
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
@@ -29,18 +44,18 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
       SELECT a.*, p.name as player_name, p.is_regular
       FROM attendance a
       JOIN players p ON a.player_id = p.id
-      WHERE a.game_id = ?
+      WHERE a.game_id = ? AND p.league_id = ?
       ORDER BY p.is_regular DESC, p.name
-    `, [game.id]) as AttendanceWithPlayer[];
+    `, [game.id, req.leagueId]) as AttendanceWithPlayer[];
 
     // Get teams
     const teams = await allAsync(`
       SELECT t.team_number, t.player_id, p.name as player_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
-      WHERE t.game_id = ?
+      WHERE t.game_id = ? AND p.league_id = ?
       ORDER BY t.team_number, p.name
-    `, [game.id]) as TeamWithPlayer[];
+    `, [game.id, req.leagueId]) as TeamWithPlayer[];
 
     const gameWithDetails: GameWithDetails = {
       ...game,
@@ -56,8 +71,12 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // Create game (admin only)
-router.post('/', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
     const { date, time, location } = req.body;
 
     if (!date) {
@@ -65,12 +84,15 @@ router.post('/', authenticateToken, requireAdmin, async (req: Request, res: Resp
     }
 
     const result = await runAsync(
-      'INSERT INTO games (date, time, location) VALUES (?, ?, ?)',
-      [date, time || null, location || null]
+      'INSERT INTO games (league_id, date, time, location) VALUES (?, ?, ?, ?)',
+      [req.leagueId, date, time || null, location || null]
     );
 
     // Create attendance records for all active players
-    const players = await allAsync('SELECT id FROM players WHERE is_active = 1') as { id: number }[];
+    const players = await allAsync(
+      'SELECT id FROM players WHERE league_id = ? AND is_active = 1',
+      [req.leagueId]
+    ) as { id: number }[];
 
     for (const player of players) {
       await runAsync(
@@ -88,16 +110,37 @@ router.post('/', authenticateToken, requireAdmin, async (req: Request, res: Resp
 });
 
 // Update game (admin only)
-router.put('/:id', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
     const { date, time, location, status, team1_score, team2_score } = req.body;
 
     await runAsync(
-      'UPDATE games SET date = ?, time = ?, location = ?, status = ?, team1_score = ?, team2_score = ? WHERE id = ?',
-      [date, time || null, location || null, status, team1_score || null, team2_score || null, req.params.id]
+      'UPDATE games SET date = ?, time = ?, location = ?, status = ?, team1_score = ?, team2_score = ? WHERE id = ? AND league_id = ?',
+      [
+        date,
+        time || null,
+        location || null,
+        status,
+        team1_score || null,
+        team2_score || null,
+        req.params.id,
+        req.leagueId,
+      ]
     );
 
-    const game = await getAsync('SELECT * FROM games WHERE id = ?', [req.params.id]) as Game;
+    const game = await getAsync('SELECT * FROM games WHERE id = ? AND league_id = ?', [
+      req.params.id,
+      req.leagueId,
+    ]) as Game;
+
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
     res.json(game);
   } catch (error) {
     console.error('Update game error:', error);
@@ -106,9 +149,13 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: Request, res: Re
 });
 
 // Delete game (admin only)
-router.delete('/:id', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    await runAsync('DELETE FROM games WHERE id = ?', [req.params.id]);
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
+    await runAsync('DELETE FROM games WHERE id = ? AND league_id = ?', [req.params.id, req.leagueId]);
     res.status(204).send();
   } catch (error) {
     console.error('Delete game error:', error);

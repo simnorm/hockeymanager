@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 export interface AuthRequest extends Request {
   userId?: number;
   isAdmin?: boolean;
+  leagueId?: number;
 }
 
 export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
@@ -16,8 +17,13 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+    if (!decoded.leagueId) {
+      return res.status(403).json({ error: 'Token missing league information' });
+    }
+
     req.userId = decoded.userId;
     req.isAdmin = decoded.isAdmin;
+    req.leagueId = decoded.leagueId;
     next();
   } catch (error) {
     return res.status(403).json({ error: 'Invalid or expired token' });

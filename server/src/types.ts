@@ -1,13 +1,21 @@
+export interface League {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
 export interface User {
   id: number;
   username: string;
   password: string;
   is_admin: number;
+  league_id: number;
   created_at: string;
 }
 
 export interface Player {
   id: number;
+  league_id: number;
   user_id?: number;
   name: string;
   email?: string;
@@ -19,6 +27,7 @@ export interface Player {
 
 export interface Game {
   id: number;
+  league_id: number;
   date: string;
   time?: string;
   location?: string;

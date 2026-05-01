@@ -24,7 +24,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, isAdmin: user.is_admin === 1 },
+      { userId: user.id, isAdmin: user.is_admin === 1, leagueId: user.league_id },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
@@ -35,6 +35,7 @@ router.post('/login', async (req, res) => {
         id: user.id,
         username: user.username,
         isAdmin: user.is_admin === 1,
+        leagueId: user.league_id,
       },
     });
   } catch (error) {
@@ -46,7 +47,7 @@ router.post('/login', async (req, res) => {
 // Register (for creating player accounts)
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, playerId } = req.body;
+    const { username, password, playerId, leagueId } = req.body;
 
     // Check if username exists
     const existing = await getAsync('SELECT id FROM users WHERE username = ?', [username]);
@@ -54,19 +55,56 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Username already exists' });
     }
 
+    const defaultLeague = await getAsync('SELECT id FROM leagues ORDER BY id LIMIT 1') as { id: number } | undefined;
+
+    let resolvedLeagueId: number | undefined;
+
+    if (playerId) {
+      const player = await getAsync(
+        'SELECT id, league_id, user_id FROM players WHERE id = ? AND is_active = 1',
+        [playerId]
+      ) as { id: number; league_id: number; user_id: number | null } | undefined;
+
+      if (!player) {
+        return res.status(400).json({ error: 'Player not found' });
+      }
+
+      if (player.user_id) {
+        return res.status(400).json({ error: 'Player already has an account' });
+      }
+
+      resolvedLeagueId = player.league_id;
+    } else if (leagueId) {
+      const existingLeague = await getAsync('SELECT id FROM leagues WHERE id = ?', [leagueId]) as { id: number } | undefined;
+      if (!existingLeague) {
+        return res.status(400).json({ error: 'Invalid league' });
+      }
+      resolvedLeagueId = existingLeague.id;
+    } else {
+      resolvedLeagueId = defaultLeague?.id;
+    }
+
+    if (!resolvedLeagueId) {
+      return res.status(500).json({ error: 'No league available for registration' });
+    }
+
     const hashedPassword = bcrypt.hashSync(password, 10);
     const result = await runAsync(
-      'INSERT INTO users (username, password, is_admin) VALUES (?, ?, 0)',
-      [username, hashedPassword]
+      'INSERT INTO users (username, password, is_admin, league_id) VALUES (?, ?, 0, ?)',
+      [username, hashedPassword, resolvedLeagueId]
     );
 
     // Link to player if playerId provided
     if (playerId) {
-      await runAsync('UPDATE players SET user_id = ? WHERE id = ?', [result.lastID, playerId]);
+      await runAsync('UPDATE players SET user_id = ? WHERE id = ? AND league_id = ?', [
+        result.lastID,
+        playerId,
+        resolvedLeagueId,
+      ]);
     }
 
     const token = jwt.sign(
-      { userId: result.lastID, isAdmin: false },
+      { userId: result.lastID, isAdmin: false, leagueId: resolvedLeagueId },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
@@ -77,6 +115,7 @@ router.post('/register', async (req, res) => {
         id: result.lastID,
         username,
         isAdmin: false,
+        leagueId: resolvedLeagueId,
       },
     });
   } catch (error) {

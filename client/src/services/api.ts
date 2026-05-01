@@ -19,8 +19,8 @@ api.interceptors.request.use((config) => {
 export const authApi = {
   login: (username: string, password: string) =>
     api.post('/auth/login', { username, password }),
-  register: (username: string, password: string, playerId?: number) =>
-    api.post('/auth/register', { username, password, playerId }),
+  register: (username: string, password: string, playerId?: number, leagueId?: number) =>
+    api.post('/auth/register', { username, password, playerId, leagueId }),
 };
 
 // Players API
