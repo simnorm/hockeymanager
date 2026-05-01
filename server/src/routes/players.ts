@@ -15,6 +15,24 @@ function normalizeRating(value: unknown): number {
   return Math.max(0, Math.min(10, rounded));
 }
 
+function normalizeWeight(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 5;
+  }
+
+  const rounded = Math.round(parsed);
+  return Math.max(0, Math.min(10, rounded));
+}
+
+function normalizePosition(value: unknown): 'forward' | 'defense' | 'goalie' {
+  if (value === 'defense' || value === 'goalie') {
+    return value;
+  }
+
+  return 'forward';
+}
+
 // Get all players
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -62,7 +80,18 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
       return res.status(403).json({ error: 'League context required' });
     }
 
-    const { name, email, phone, is_regular, defense_rating, forward_rating, goalie_rating } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      is_regular,
+      position,
+      offense_weight,
+      defense_weight,
+      defense_rating,
+      forward_rating,
+      goalie_rating,
+    } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
@@ -70,14 +99,17 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
 
     const result = await runAsync(
       `INSERT INTO players
-      (league_id, name, email, phone, is_regular, defense_rating, forward_rating, goalie_rating)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (league_id, name, position, email, phone, is_regular, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.leagueId,
         name,
+        normalizePosition(position),
         email || null,
         phone || null,
         is_regular ? 1 : 0,
+        normalizeWeight(offense_weight),
+        normalizeWeight(defense_weight),
         normalizeRating(defense_rating),
         normalizeRating(forward_rating),
         normalizeRating(goalie_rating),
@@ -99,18 +131,33 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
       return res.status(403).json({ error: 'League context required' });
     }
 
-    const { name, email, phone, is_regular, is_active, defense_rating, forward_rating, goalie_rating } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      is_regular,
+      is_active,
+      position,
+      offense_weight,
+      defense_weight,
+      defense_rating,
+      forward_rating,
+      goalie_rating,
+    } = req.body;
 
     await runAsync(
       `UPDATE players
-      SET name = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
+      SET name = ?, position = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, offense_weight = ?, defense_weight = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
       WHERE id = ? AND league_id = ?`,
       [
         name,
+        normalizePosition(position),
         email || null,
         phone || null,
         is_regular ? 1 : 0,
         is_active ? 1 : 0,
+        normalizeWeight(offense_weight),
+        normalizeWeight(defense_weight),
         normalizeRating(defense_rating),
         normalizeRating(forward_rating),
         normalizeRating(goalie_rating),

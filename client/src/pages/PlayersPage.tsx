@@ -21,6 +21,10 @@ import {
   Checkbox,
   CircularProgress,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -37,14 +41,20 @@ export function PlayersPage() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [newPlayer, setNewPlayer] = useState({
     name: '',
+    position: 'forward' as 'forward' | 'defense' | 'goalie',
     email: '',
     phone: '',
     is_regular: true,
+    offense_weight: 5,
+    defense_weight: 5,
     defense_rating: 5,
     forward_rating: 5,
     goalie_rating: 5,
   });
   const [editRatings, setEditRatings] = useState({
+    position: 'forward' as 'forward' | 'defense' | 'goalie',
+    offense_weight: 5,
+    defense_weight: 5,
     defense_rating: 5,
     forward_rating: 5,
     goalie_rating: 5,
@@ -72,9 +82,12 @@ export function PlayersPage() {
       setOpenDialog(false);
       setNewPlayer({
         name: '',
+        position: 'forward',
         email: '',
         phone: '',
         is_regular: true,
+        offense_weight: 5,
+        defense_weight: 5,
         defense_rating: 5,
         forward_rating: 5,
         goalie_rating: 5,
@@ -91,6 +104,9 @@ export function PlayersPage() {
       defense_rating: player.defense_rating,
       forward_rating: player.forward_rating,
       goalie_rating: player.goalie_rating,
+      position: player.position,
+      offense_weight: player.offense_weight,
+      defense_weight: player.defense_weight,
     });
     setOpenEditDialog(true);
   };
@@ -105,6 +121,7 @@ export function PlayersPage() {
     try {
       await playersApi.update(editingPlayer.id, {
         name: editingPlayer.name,
+        position: editRatings.position,
         email: editingPlayer.email,
         phone: editingPlayer.phone,
         is_regular: Boolean(editingPlayer.is_regular),
@@ -112,6 +129,8 @@ export function PlayersPage() {
         defense_rating: clampRating(editRatings.defense_rating),
         forward_rating: clampRating(editRatings.forward_rating),
         goalie_rating: clampRating(editRatings.goalie_rating),
+        offense_weight: clampRating(editRatings.offense_weight),
+        defense_weight: clampRating(editRatings.defense_weight),
       });
 
       setOpenEditDialog(false);
@@ -158,6 +177,9 @@ export function PlayersPage() {
                 <TableCell>Email</TableCell>
                 <TableCell>Phone</TableCell>
                 <TableCell>Type</TableCell>
+                <TableCell>Position</TableCell>
+                <TableCell>Offense Weight</TableCell>
+                <TableCell>Defense Weight</TableCell>
                 <TableCell>Defense</TableCell>
                 <TableCell>Forward</TableCell>
                 <TableCell>Goalie</TableCell>
@@ -177,6 +199,9 @@ export function PlayersPage() {
                       size="small"
                     />
                   </TableCell>
+                  <TableCell sx={{ textTransform: 'capitalize' }}>{player.position}</TableCell>
+                  <TableCell>{player.offense_weight}</TableCell>
+                  <TableCell>{player.defense_weight}</TableCell>
                   <TableCell>{player.defense_rating}</TableCell>
                   <TableCell>{player.forward_rating}</TableCell>
                   <TableCell>{player.goalie_rating}</TableCell>
@@ -204,6 +229,24 @@ export function PlayersPage() {
               margin="normal"
               required
             />
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="new-player-position-label">Position</InputLabel>
+              <Select
+                labelId="new-player-position-label"
+                label="Position"
+                value={newPlayer.position}
+                onChange={(e) =>
+                  setNewPlayer({
+                    ...newPlayer,
+                    position: e.target.value as 'forward' | 'defense' | 'goalie',
+                  })
+                }
+              >
+                <MenuItem value="forward">Forward</MenuItem>
+                <MenuItem value="defense">Defense</MenuItem>
+                <MenuItem value="goalie">Goalie</MenuItem>
+              </Select>
+            </FormControl>
             <TextField
               fullWidth
               label="Email"
@@ -229,6 +272,28 @@ export function PlayersPage() {
                 />
               }
               label="Regular Player"
+            />
+            <TextField
+              fullWidth
+              label="Offense Weight (0-10)"
+              type="number"
+              value={newPlayer.offense_weight}
+              onChange={(e) =>
+                setNewPlayer({ ...newPlayer, offense_weight: clampRating(Number(e.target.value)) })
+              }
+              margin="normal"
+              inputProps={{ min: 0, max: 10 }}
+            />
+            <TextField
+              fullWidth
+              label="Defense Weight (0-10)"
+              type="number"
+              value={newPlayer.defense_weight}
+              onChange={(e) =>
+                setNewPlayer({ ...newPlayer, defense_weight: clampRating(Number(e.target.value)) })
+              }
+              margin="normal"
+              inputProps={{ min: 0, max: 10 }}
             />
             <TextField
               fullWidth
@@ -278,6 +343,52 @@ export function PlayersPage() {
             <Typography variant="subtitle1" sx={{ mt: 1 }}>
               {editingPlayer?.name}
             </Typography>
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="edit-player-position-label">Position</InputLabel>
+              <Select
+                labelId="edit-player-position-label"
+                label="Position"
+                value={editRatings.position}
+                onChange={(e) =>
+                  setEditRatings({
+                    ...editRatings,
+                    position: e.target.value as 'forward' | 'defense' | 'goalie',
+                  })
+                }
+              >
+                <MenuItem value="forward">Forward</MenuItem>
+                <MenuItem value="defense">Defense</MenuItem>
+                <MenuItem value="goalie">Goalie</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Offense Weight (0-10)"
+              type="number"
+              value={editRatings.offense_weight}
+              onChange={(e) =>
+                setEditRatings({
+                  ...editRatings,
+                  offense_weight: clampRating(Number(e.target.value)),
+                })
+              }
+              margin="normal"
+              inputProps={{ min: 0, max: 10 }}
+            />
+            <TextField
+              fullWidth
+              label="Defense Weight (0-10)"
+              type="number"
+              value={editRatings.defense_weight}
+              onChange={(e) =>
+                setEditRatings({
+                  ...editRatings,
+                  defense_weight: clampRating(Number(e.target.value)),
+                })
+              }
+              margin="normal"
+              inputProps={{ min: 0, max: 10 }}
+            />
             <TextField
               fullWidth
               label="Defense Rating (0-10)"
