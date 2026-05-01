@@ -1,0 +1,57 @@
+import axios from 'axios';
+
+const API_BASE_URL = '/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+// Add token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Auth API
+export const authApi = {
+  login: (username: string, password: string) =>
+    api.post('/auth/login', { username, password }),
+  register: (username: string, password: string, playerId?: number) =>
+    api.post('/auth/register', { username, password, playerId }),
+};
+
+// Players API
+export const playersApi = {
+  getAll: () => api.get('/players'),
+  getById: (id: number) => api.get(`/players/${id}`),
+  create: (data: any) => api.post('/players', data),
+  update: (id: number, data: any) => api.put(`/players/${id}`, data),
+  delete: (id: number) => api.delete(`/players/${id}`),
+};
+
+// Games API
+export const gamesApi = {
+  getAll: () => api.get('/games'),
+  getById: (id: number) => api.get(`/games/${id}`),
+  create: (data: any) => api.post('/games', data),
+  update: (id: number, data: any) => api.put(`/games/${id}`, data),
+  delete: (id: number) => api.delete(`/games/${id}`),
+};
+
+// Attendance API
+export const attendanceApi = {
+  update: (gameId: number, playerId: number, status: 'present' | 'absent') =>
+    api.put(`/attendance/${gameId}/${playerId}`, { status }),
+};
+
+// Teams API
+export const teamsApi = {
+  create: (gameId: number, teams: { team1: number[]; team2: number[] }) =>
+    api.post(`/teams/${gameId}`, { teams }),
+  autoBalance: (gameId: number) => api.post(`/teams/${gameId}/auto-balance`),
+};
+
+export default api;
