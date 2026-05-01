@@ -34,7 +34,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
-import { playersApi } from '../services/api';
+import { authApi, playersApi } from '../services/api';
 import { Player } from '../types';
 import { Navigation } from '../components/Navigation';
 
@@ -44,7 +44,11 @@ export function PlayersPage() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openAddExistingDialog, setOpenAddExistingDialog] = useState(false);
+  const [openInviteDialog, setOpenInviteDialog] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [invitePlayerName, setInvitePlayerName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [existingPlayers, setExistingPlayers] = useState<Player[]>([]);
   const [existingSearch, setExistingSearch] = useState('');
   const [existingError, setExistingError] = useState('');
@@ -146,6 +150,32 @@ export function PlayersPage() {
     } catch (error) {
       console.error('Failed to add existing player:', error);
       setExistingError(t('players.failedAddExisting'));
+    }
+  };
+
+  const handleCreateInvite = async (player: Player) => {
+    try {
+      const response = await authApi.invitePlayer(player.id);
+      setInvitePlayerName(player.name);
+      setInviteCode(response.data.inviteCode || '');
+      setInviteCopied(false);
+      setOpenInviteDialog(true);
+    } catch (error) {
+      console.error('Failed to create invite code:', error);
+      setExistingError(t('players.failedInvite'));
+    }
+  };
+
+  const handleCopyInviteCode = async () => {
+    if (!inviteCode) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setInviteCopied(true);
+    } catch (error) {
+      console.error('Failed to copy invite code:', error);
     }
   };
 
@@ -257,6 +287,14 @@ export function PlayersPage() {
                   <TableCell>{player.goalie_rating}</TableCell>
                   {user?.isAdmin && (
                     <TableCell align="right">
+                      <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => handleCreateInvite(player)}
+                        disabled={Boolean(player.user_id)}
+                      >
+                        {t('players.createInvite')}
+                      </Button>
                       <IconButton onClick={() => handleOpenEditRatings(player)} size="small">
                         <EditIcon fontSize="small" />
                       </IconButton>
@@ -543,6 +581,37 @@ export function PlayersPage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenAddExistingDialog(false)}>{t('players.cancel')}</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={openInviteDialog} onClose={() => setOpenInviteDialog(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>{t('players.inviteCodeTitle')}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              {t('players.inviteFor')}: {invitePlayerName}
+            </Typography>
+            <TextField
+              fullWidth
+              margin="normal"
+              value={inviteCode}
+              InputProps={{ readOnly: true }}
+            />
+            <Box display="flex" justifyContent="flex-end" mb={1}>
+              <Button variant="outlined" size="small" onClick={handleCopyInviteCode}>
+                {t('players.copyInviteCode')}
+              </Button>
+            </Box>
+            {inviteCopied && (
+              <Alert severity="success" sx={{ mb: 1 }}>
+                {t('players.inviteCopied')}
+              </Alert>
+            )}
+            <Typography variant="caption" color="text.secondary">
+              {t('players.inviteCopyHint')}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenInviteDialog(false)}>{t('players.cancel')}</Button>
           </DialogActions>
         </Dialog>
       </Container>

@@ -17,10 +17,12 @@ import { useI18n } from '../contexts/I18nContext';
 import SportsHockeyIcon from '@mui/icons-material/SportsHockey';
 
 export function LoginPage() {
+  const [isInviteMode, setIsInviteMode] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, completeInvite } = useAuth();
   const { t, language, setLanguage } = useI18n();
   const navigate = useNavigate();
 
@@ -29,11 +31,20 @@ export function LoginPage() {
     setError('');
 
     try {
-      await login(username, password);
+      if (isInviteMode) {
+        await completeInvite(inviteCode, username, password);
+      } else {
+        await login(username, password);
+      }
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || t('login.failed'));
     }
+  };
+
+  const toggleMode = () => {
+    setIsInviteMode((prev) => !prev);
+    setError('');
   };
 
   return (
@@ -73,6 +84,17 @@ export function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit}>
+            {isInviteMode && (
+              <TextField
+                fullWidth
+                label={t('login.inviteCode')}
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                margin="normal"
+                required
+                autoFocus
+              />
+            )}
             <TextField
               fullWidth
               label={t('login.username')}
@@ -80,7 +102,7 @@ export function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               margin="normal"
               required
-              autoFocus
+              autoFocus={!isInviteMode}
             />
             <TextField
               fullWidth
@@ -98,7 +120,15 @@ export function LoginPage() {
               size="large"
               sx={{ mt: 3 }}
             >
-              {t('login.submit')}
+              {isInviteMode ? t('login.createAccount') : t('login.submit')}
+            </Button>
+            <Button
+              fullWidth
+              variant="text"
+              sx={{ mt: 1 }}
+              onClick={toggleMode}
+            >
+              {isInviteMode ? t('login.backToLogin') : t('login.joinWithInvite')}
             </Button>
           </form>
 

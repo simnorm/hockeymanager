@@ -14,6 +14,11 @@ type TranslationKey =
   | 'login.username'
   | 'login.password'
   | 'login.submit'
+  | 'login.joinWithInvite'
+  | 'login.backToLogin'
+  | 'login.inviteCode'
+  | 'login.createAccount'
+  | 'login.inviteSuccess'
   | 'login.failed'
   | 'login.defaultAdmin'
   | 'games.title'
@@ -59,6 +64,13 @@ type TranslationKey =
   | 'players.search'
   | 'players.noExistingFound'
   | 'players.addToLeague'
+  | 'players.createInvite'
+  | 'players.inviteCodeTitle'
+  | 'players.inviteFor'
+  | 'players.inviteCopyHint'
+  | 'players.copyInviteCode'
+  | 'players.inviteCopied'
+  | 'players.failedInvite'
   | 'players.failedExistingLoad'
   | 'players.failedAddExisting'
   | 'gameDetail.back'
@@ -112,6 +124,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'login.username': 'Username',
     'login.password': 'Password',
     'login.submit': 'Login',
+    'login.joinWithInvite': 'Join With Invite Code',
+    'login.backToLogin': 'Back To Login',
+    'login.inviteCode': 'Invite Code',
+    'login.createAccount': 'Create Account',
+    'login.inviteSuccess': 'Account created successfully',
     'login.failed': 'Login failed',
     'login.defaultAdmin': 'Default admin: username: admin, password: admin123',
     'games.title': 'Games',
@@ -157,6 +174,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.search': 'Search',
     'players.noExistingFound': 'No existing players found',
     'players.addToLeague': 'Add To League',
+    'players.createInvite': 'Create Invite',
+    'players.inviteCodeTitle': 'Player Invite Code',
+    'players.inviteFor': 'Invite for',
+    'players.inviteCopyHint': 'Share this code with the player so they can create their account.',
+    'players.copyInviteCode': 'Copy code',
+    'players.inviteCopied': 'Code copied',
+    'players.failedInvite': 'Failed to create invite code',
     'players.failedExistingLoad': 'Failed to load existing players',
     'players.failedAddExisting': 'Failed to add player to league',
     'gameDetail.back': 'Back to Games',
@@ -209,6 +233,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'login.username': 'Nom d\'utilisateur',
     'login.password': 'Mot de passe',
     'login.submit': 'Connexion',
+    'login.joinWithInvite': 'S\'inscrire avec un code',
+    'login.backToLogin': 'Retour a la connexion',
+    'login.inviteCode': 'Code d\'invitation',
+    'login.createAccount': 'Creer le compte',
+    'login.inviteSuccess': 'Compte cree avec succes',
     'login.failed': 'Echec de connexion',
     'login.defaultAdmin': 'Admin par defaut : nom d\'utilisateur : admin, mot de passe : admin123',
     'games.title': 'Matchs',
@@ -254,6 +283,13 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.search': 'Rechercher',
     'players.noExistingFound': 'Aucun joueur existant trouve',
     'players.addToLeague': 'Ajouter a la ligue',
+    'players.createInvite': 'Creer une invitation',
+    'players.inviteCodeTitle': 'Code d\'invitation joueur',
+    'players.inviteFor': 'Invitation pour',
+    'players.inviteCopyHint': 'Partagez ce code avec le joueur pour qu\'il cree son compte.',
+    'players.copyInviteCode': 'Copier le code',
+    'players.inviteCopied': 'Code copie',
+    'players.failedInvite': 'Echec de creation du code d\'invitation',
     'players.failedExistingLoad': 'Echec du chargement des joueurs existants',
     'players.failedAddExisting': 'Echec de l\'ajout du joueur a la ligue',
     'gameDetail.back': 'Retour aux matchs',

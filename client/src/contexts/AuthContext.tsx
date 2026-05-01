@@ -5,6 +5,7 @@ import { User, LeagueAccess } from '../types';
 interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<void>;
+  completeInvite: (inviteCode: string, username: string, password: string) => Promise<void>;
   switchLeague: (leagueId: number) => Promise<void>;
   updateLeagues: (leagues: LeagueAccess[]) => void;
   logout: () => void;
@@ -28,6 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string) => {
     const response = await authApi.login(username, password);
+    const { token, user } = response.data;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    setUser(user);
+  };
+
+  const completeInvite = async (inviteCode: string, username: string, password: string) => {
+    const response = await authApi.completeInvite(inviteCode, username, password);
     const { token, user } = response.data;
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
@@ -67,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, switchLeague, updateLeagues, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, completeInvite, switchLeague, updateLeagues, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

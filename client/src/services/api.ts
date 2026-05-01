@@ -22,6 +22,10 @@ export const authApi = {
     api.post('/auth/login', { username, password }),
   switchLeague: (leagueId: number) =>
     api.post('/auth/switch-league', { leagueId }),
+  invitePlayer: (playerId: number) =>
+    api.post('/auth/invite-player', { playerId }),
+  completeInvite: (inviteCode: string, username: string, password: string) =>
+    api.post('/auth/complete-invite', { inviteCode, username, password }),
   register: (username: string, password: string, playerId?: number, leagueId?: number) =>
     api.post('/auth/register', { username, password, playerId, leagueId }),
 };

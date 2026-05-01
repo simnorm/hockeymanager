@@ -141,6 +141,22 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Player invite codes for onboarding
+    await runAsync(`
+      CREATE TABLE IF NOT EXISTS player_invites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        league_id INTEGER NOT NULL,
+        invite_code TEXT UNIQUE NOT NULL,
+        created_by_user_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        used_at DATETIME,
+        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+        FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
     // Migrate older databases that were created before league support existed
     if (!(await columnExists('users', 'league_id'))) {
       await runAsync('ALTER TABLE users ADD COLUMN league_id INTEGER REFERENCES leagues(id)');
@@ -196,6 +212,9 @@ export async function initializeDatabase() {
     await runAsync('CREATE INDEX IF NOT EXISTS idx_player_leagues_league_id ON player_leagues(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_user_leagues_user_id ON user_leagues(user_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_user_leagues_league_id ON user_leagues(league_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_player_invites_player_id ON player_invites(player_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_player_invites_league_id ON player_invites(league_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_player_invites_invite_code ON player_invites(invite_code)');
 
     // Backfill player-league memberships from legacy players.league_id.
     await runAsync(`
