@@ -55,6 +55,75 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Find players that can be added to the current league (admin only)
+router.get('/available-to-add', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
+    const rawQuery = String(req.query.q || '').trim();
+    const likeQuery = `%${rawQuery.toLowerCase()}%`;
+
+    const players = await allAsync(
+      `SELECT p.*
+       FROM players p
+       WHERE p.is_active = 1
+         AND p.id NOT IN (
+           SELECT pl.player_id FROM player_leagues pl WHERE pl.league_id = ?
+         )
+         AND (
+           ? = ''
+           OR LOWER(p.name) LIKE ?
+           OR LOWER(COALESCE(p.email, '')) LIKE ?
+         )
+       ORDER BY p.name
+       LIMIT 25`,
+      [req.leagueId, rawQuery, likeQuery, likeQuery]
+    ) as Player[];
+
+    return res.json(players);
+  } catch (error) {
+    console.error('Get available players error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add an existing player to the current league (admin only)
+router.post('/:id/add-to-current-league', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
+    const playerId = Number(req.params.id);
+    if (!Number.isFinite(playerId)) {
+      return res.status(400).json({ error: 'Invalid player id' });
+    }
+
+    const player = await getAsync('SELECT * FROM players WHERE id = ? AND is_active = 1', [playerId]) as Player | undefined;
+    if (!player) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+
+    const existingMembership = await getAsync(
+      'SELECT id FROM player_leagues WHERE player_id = ? AND league_id = ?',
+      [playerId, req.leagueId]
+    ) as { id: number } | undefined;
+
+    if (existingMembership) {
+      return res.status(400).json({ error: 'Player already in this league' });
+    }
+
+    await runAsync('INSERT INTO player_leagues (player_id, league_id) VALUES (?, ?)', [playerId, req.leagueId]);
+
+    return res.status(201).json(player);
+  } catch (error) {
+    console.error('Add existing player to league error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get player by ID
 router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -183,7 +252,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
     await runAsync(
       `UPDATE players
       SET name = ?, position = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, offense_weight = ?, defense_weight = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
-      WHERE id = ? AND league_id = ?`,
+      WHERE id = ?`,
       [
         name,
         normalizePosition(position),
@@ -197,7 +266,6 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
         normalizeRating(forward_rating),
         normalizeRating(goalie_rating),
         req.params.id,
-        req.leagueId,
       ]
     );
 

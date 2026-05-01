@@ -53,6 +53,14 @@ type TranslationKey =
   | 'players.cancel'
   | 'players.save'
   | 'players.addPlayer'
+  | 'players.addExisting'
+  | 'players.addExistingTitle'
+  | 'players.searchExisting'
+  | 'players.search'
+  | 'players.noExistingFound'
+  | 'players.addToLeague'
+  | 'players.failedExistingLoad'
+  | 'players.failedAddExisting'
   | 'gameDetail.back'
   | 'gameDetail.titlePrefix'
   | 'gameDetail.time'
@@ -143,6 +151,14 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.cancel': 'Cancel',
     'players.save': 'Save Ratings',
     'players.addPlayer': 'Add Player',
+    'players.addExisting': 'Add Existing Player',
+    'players.addExistingTitle': 'Add Existing Player To This League',
+    'players.searchExisting': 'Search by name or email',
+    'players.search': 'Search',
+    'players.noExistingFound': 'No existing players found',
+    'players.addToLeague': 'Add To League',
+    'players.failedExistingLoad': 'Failed to load existing players',
+    'players.failedAddExisting': 'Failed to add player to league',
     'gameDetail.back': 'Back to Games',
     'gameDetail.titlePrefix': 'Game on',
     'gameDetail.time': 'Time',
@@ -232,6 +248,14 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.cancel': 'Annuler',
     'players.save': 'Enregistrer les cotes',
     'players.addPlayer': 'Ajouter le joueur',
+    'players.addExisting': 'Ajouter un joueur existant',
+    'players.addExistingTitle': 'Ajouter un joueur existant a cette ligue',
+    'players.searchExisting': 'Rechercher par nom ou courriel',
+    'players.search': 'Rechercher',
+    'players.noExistingFound': 'Aucun joueur existant trouve',
+    'players.addToLeague': 'Ajouter a la ligue',
+    'players.failedExistingLoad': 'Echec du chargement des joueurs existants',
+    'players.failedAddExisting': 'Echec de l\'ajout du joueur a la ligue',
     'gameDetail.back': 'Retour aux matchs',
     'gameDetail.titlePrefix': 'Match du',
     'gameDetail.time': 'Heure',

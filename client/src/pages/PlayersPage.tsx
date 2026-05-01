@@ -25,6 +25,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -39,7 +43,11 @@ export function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openAddExistingDialog, setOpenAddExistingDialog] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [existingPlayers, setExistingPlayers] = useState<Player[]>([]);
+  const [existingSearch, setExistingSearch] = useState('');
+  const [existingError, setExistingError] = useState('');
   const [newPlayer, setNewPlayer] = useState({
     name: '',
     position: 'forward' as 'forward' | 'defense' | 'goalie',
@@ -113,6 +121,34 @@ export function PlayersPage() {
     setOpenEditDialog(true);
   };
 
+  const loadAvailableExistingPlayers = async (query: string) => {
+    try {
+      const response = await playersApi.getAvailableToAdd(query);
+      setExistingPlayers(response.data);
+      setExistingError('');
+    } catch (error) {
+      console.error('Failed to load existing players:', error);
+      setExistingError(t('players.failedExistingLoad'));
+    }
+  };
+
+  const handleOpenAddExisting = async () => {
+    setOpenAddExistingDialog(true);
+    setExistingSearch('');
+    await loadAvailableExistingPlayers('');
+  };
+
+  const handleAddExistingToLeague = async (playerId: number) => {
+    try {
+      await playersApi.addToCurrentLeague(playerId);
+      await loadPlayers();
+      await loadAvailableExistingPlayers(existingSearch);
+    } catch (error) {
+      console.error('Failed to add existing player:', error);
+      setExistingError(t('players.failedAddExisting'));
+    }
+  };
+
   const clampRating = (value: number) => Math.max(0, Math.min(10, value));
 
   const handleSaveRatings = async () => {
@@ -161,13 +197,21 @@ export function PlayersPage() {
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h4">{t('players.title')}</Typography>
           {user?.isAdmin && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenDialog(true)}
-            >
-              {t('players.add')}
-            </Button>
+            <Box display="flex" gap={1}>
+              <Button
+                variant="outlined"
+                onClick={handleOpenAddExisting}
+              >
+                {t('players.addExisting')}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setOpenDialog(true)}
+              >
+                {t('players.add')}
+              </Button>
+            </Box>
           )}
         </Box>
 
@@ -443,6 +487,62 @@ export function PlayersPage() {
             <Button onClick={handleSaveRatings} variant="contained" disabled={!editingPlayer}>
               {t('players.save')}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={openAddExistingDialog}
+          onClose={() => setOpenAddExistingDialog(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>{t('players.addExistingTitle')}</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label={t('players.searchExisting')}
+              value={existingSearch}
+              onChange={(e) => setExistingSearch(e.target.value)}
+              margin="normal"
+            />
+            <Box display="flex" justifyContent="flex-end" mb={1}>
+              <Button variant="outlined" onClick={() => loadAvailableExistingPlayers(existingSearch)}>
+                {t('players.search')}
+              </Button>
+            </Box>
+
+            {existingError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {existingError}
+              </Alert>
+            )}
+
+            <List dense>
+              {existingPlayers.length === 0 && (
+                <ListItem>
+                  <ListItemText primary={t('players.noExistingFound')} />
+                </ListItem>
+              )}
+
+              {existingPlayers.map((player) => (
+                <ListItem key={player.id} disableGutters sx={{ gap: 1 }}>
+                  <ListItemText
+                    primary={player.name}
+                    secondary={player.email || player.phone || '-'}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => handleAddExistingToLeague(player.id)}
+                  >
+                    {t('players.addToLeague')}
+                  </Button>
+                </ListItem>
+              ))}
+            </List>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenAddExistingDialog(false)}>{t('players.cancel')}</Button>
           </DialogActions>
         </Dialog>
       </Container>
