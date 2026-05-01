@@ -29,6 +29,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import { playersApi } from '../services/api';
 import { Player } from '../types';
 import { Navigation } from '../components/Navigation';
@@ -60,6 +61,7 @@ export function PlayersPage() {
     goalie_rating: 5,
   });
   const { user } = useAuth();
+  const { t } = useI18n();
 
   useEffect(() => {
     loadPlayers();
@@ -157,14 +159,14 @@ export function PlayersPage() {
       <Navigation />
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h4">Players</Typography>
+          <Typography variant="h4">{t('players.title')}</Typography>
           {user?.isAdmin && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setOpenDialog(true)}
             >
-              Add Player
+              {t('players.add')}
             </Button>
           )}
         </Box>
@@ -173,17 +175,17 @@ export function PlayersPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Position</TableCell>
-                <TableCell>Offense Weight</TableCell>
-                <TableCell>Defense Weight</TableCell>
-                <TableCell>Defense</TableCell>
-                <TableCell>Forward</TableCell>
-                <TableCell>Goalie</TableCell>
-                {user?.isAdmin && <TableCell align="right">Actions</TableCell>}
+                <TableCell>{t('players.name')}</TableCell>
+                <TableCell>{t('players.email')}</TableCell>
+                <TableCell>{t('players.phone')}</TableCell>
+                <TableCell>{t('players.type')}</TableCell>
+                <TableCell>{t('players.position')}</TableCell>
+                <TableCell>{t('players.offenseWeight')}</TableCell>
+                <TableCell>{t('players.defenseWeight')}</TableCell>
+                <TableCell>{t('players.defenseRating')}</TableCell>
+                <TableCell>{t('players.forwardRating')}</TableCell>
+                <TableCell>{t('players.goalieRating')}</TableCell>
+                {user?.isAdmin && <TableCell align="right">{t('players.actions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -194,12 +196,16 @@ export function PlayersPage() {
                   <TableCell>{player.phone || '-'}</TableCell>
                   <TableCell>
                     <Chip
-                      label={player.is_regular ? 'Regular' : 'Sub'}
+                      label={player.is_regular ? t('players.regular') : t('players.sub')}
                       color={player.is_regular ? 'primary' : 'default'}
                       size="small"
                     />
                   </TableCell>
-                  <TableCell sx={{ textTransform: 'capitalize' }}>{player.position}</TableCell>
+                  <TableCell sx={{ textTransform: 'capitalize' }}>
+                    {player.position === 'forward' && t('players.forward')}
+                    {player.position === 'defense' && t('players.defense')}
+                    {player.position === 'goalie' && t('players.goalie')}
+                  </TableCell>
                   <TableCell>{player.offense_weight}</TableCell>
                   <TableCell>{player.defense_weight}</TableCell>
                   <TableCell>{player.defense_rating}</TableCell>
@@ -219,21 +225,21 @@ export function PlayersPage() {
         </TableContainer>
 
         <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Add New Player</DialogTitle>
+          <DialogTitle>{t('players.addTitle')}</DialogTitle>
           <DialogContent>
             <TextField
               fullWidth
-              label="Name"
+              label={t('players.name')}
               value={newPlayer.name}
               onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
               margin="normal"
               required
             />
             <FormControl fullWidth margin="normal">
-              <InputLabel id="new-player-position-label">Position</InputLabel>
+              <InputLabel id="new-player-position-label">{t('players.position')}</InputLabel>
               <Select
                 labelId="new-player-position-label"
-                label="Position"
+                label={t('players.position')}
                 value={newPlayer.position}
                 onChange={(e) =>
                   setNewPlayer({
@@ -242,14 +248,14 @@ export function PlayersPage() {
                   })
                 }
               >
-                <MenuItem value="forward">Forward</MenuItem>
-                <MenuItem value="defense">Defense</MenuItem>
-                <MenuItem value="goalie">Goalie</MenuItem>
+                <MenuItem value="forward">{t('players.forward')}</MenuItem>
+                <MenuItem value="defense">{t('players.defense')}</MenuItem>
+                <MenuItem value="goalie">{t('players.goalie')}</MenuItem>
               </Select>
             </FormControl>
             <TextField
               fullWidth
-              label="Email"
+              label={t('players.email')}
               type="email"
               value={newPlayer.email}
               onChange={(e) => setNewPlayer({ ...newPlayer, email: e.target.value })}
@@ -257,7 +263,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Phone"
+              label={t('players.phone')}
               value={newPlayer.phone}
               onChange={(e) => setNewPlayer({ ...newPlayer, phone: e.target.value })}
               margin="normal"
@@ -271,11 +277,11 @@ export function PlayersPage() {
                   }
                 />
               }
-              label="Regular Player"
+              label={t('players.regularToggle')}
             />
             <TextField
               fullWidth
-              label="Offense Weight (0-10)"
+              label={`${t('players.offenseWeight')} (0-10)`}
               type="number"
               value={newPlayer.offense_weight}
               onChange={(e) =>
@@ -286,7 +292,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Defense Weight (0-10)"
+              label={`${t('players.defenseWeight')} (0-10)`}
               type="number"
               value={newPlayer.defense_weight}
               onChange={(e) =>
@@ -297,7 +303,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Defense Rating (0-10)"
+              label={`${t('players.defenseRating')} (0-10)`}
               type="number"
               value={newPlayer.defense_rating}
               onChange={(e) =>
@@ -308,7 +314,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Forward Rating (0-10)"
+              label={`${t('players.forwardRating')} (0-10)`}
               type="number"
               value={newPlayer.forward_rating}
               onChange={(e) =>
@@ -319,7 +325,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Goalie Rating (0-10)"
+              label={`${t('players.goalieRating')} (0-10)`}
               type="number"
               value={newPlayer.goalie_rating}
               onChange={(e) =>
@@ -330,24 +336,24 @@ export function PlayersPage() {
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+            <Button onClick={() => setOpenDialog(false)}>{t('players.cancel')}</Button>
             <Button onClick={handleCreatePlayer} variant="contained" disabled={!newPlayer.name}>
-              Add Player
+              {t('players.addPlayer')}
             </Button>
           </DialogActions>
         </Dialog>
 
         <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Update Player Ratings</DialogTitle>
+          <DialogTitle>{t('players.updateTitle')}</DialogTitle>
           <DialogContent>
             <Typography variant="subtitle1" sx={{ mt: 1 }}>
               {editingPlayer?.name}
             </Typography>
             <FormControl fullWidth margin="normal">
-              <InputLabel id="edit-player-position-label">Position</InputLabel>
+              <InputLabel id="edit-player-position-label">{t('players.position')}</InputLabel>
               <Select
                 labelId="edit-player-position-label"
-                label="Position"
+                label={t('players.position')}
                 value={editRatings.position}
                 onChange={(e) =>
                   setEditRatings({
@@ -356,14 +362,14 @@ export function PlayersPage() {
                   })
                 }
               >
-                <MenuItem value="forward">Forward</MenuItem>
-                <MenuItem value="defense">Defense</MenuItem>
-                <MenuItem value="goalie">Goalie</MenuItem>
+                <MenuItem value="forward">{t('players.forward')}</MenuItem>
+                <MenuItem value="defense">{t('players.defense')}</MenuItem>
+                <MenuItem value="goalie">{t('players.goalie')}</MenuItem>
               </Select>
             </FormControl>
             <TextField
               fullWidth
-              label="Offense Weight (0-10)"
+              label={`${t('players.offenseWeight')} (0-10)`}
               type="number"
               value={editRatings.offense_weight}
               onChange={(e) =>
@@ -377,7 +383,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Defense Weight (0-10)"
+              label={`${t('players.defenseWeight')} (0-10)`}
               type="number"
               value={editRatings.defense_weight}
               onChange={(e) =>
@@ -391,7 +397,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Defense Rating (0-10)"
+              label={`${t('players.defenseRating')} (0-10)`}
               type="number"
               value={editRatings.defense_rating}
               onChange={(e) =>
@@ -405,7 +411,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Forward Rating (0-10)"
+              label={`${t('players.forwardRating')} (0-10)`}
               type="number"
               value={editRatings.forward_rating}
               onChange={(e) =>
@@ -419,7 +425,7 @@ export function PlayersPage() {
             />
             <TextField
               fullWidth
-              label="Goalie Rating (0-10)"
+              label={`${t('players.goalieRating')} (0-10)`}
               type="number"
               value={editRatings.goalie_rating}
               onChange={(e) =>
@@ -433,9 +439,9 @@ export function PlayersPage() {
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+            <Button onClick={() => setOpenEditDialog(false)}>{t('players.cancel')}</Button>
             <Button onClick={handleSaveRatings} variant="contained" disabled={!editingPlayer}>
-              Save Ratings
+              {t('players.save')}
             </Button>
           </DialogActions>
         </Dialog>

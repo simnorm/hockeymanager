@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
+import { I18nProvider } from './contexts/I18nContext';
 import { PrivateRoute } from './components/PrivateRoute';
 import { LoginPage } from './pages/LoginPage';
 import { GamesPage } from './pages/GamesPage';
@@ -13,38 +14,40 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <GamesPage />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/games/:id"
-              element={
-                <PrivateRoute>
-                  <GameDetailPage />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/players"
-              element={
-                <PrivateRoute>
-                  <PlayersPage />
-                </PrivateRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <GamesPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/games/:id"
+                element={
+                  <PrivateRoute>
+                    <GameDetailPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/players"
+                element={
+                  <PrivateRoute>
+                    <PlayersPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </I18nProvider>
     </ThemeProvider>
   );
 }
