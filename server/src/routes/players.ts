@@ -5,6 +5,16 @@ import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth
 
 const router = express.Router();
 
+function normalizeRating(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 5;
+  }
+
+  const rounded = Math.round(parsed);
+  return Math.max(0, Math.min(10, rounded));
+}
+
 // Get all players
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -52,15 +62,26 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
       return res.status(403).json({ error: 'League context required' });
     }
 
-    const { name, email, phone, is_regular } = req.body;
+    const { name, email, phone, is_regular, defense_rating, forward_rating, goalie_rating } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
     }
 
     const result = await runAsync(
-      'INSERT INTO players (league_id, name, email, phone, is_regular) VALUES (?, ?, ?, ?, ?)',
-      [req.leagueId, name, email || null, phone || null, is_regular ? 1 : 0]
+      `INSERT INTO players
+      (league_id, name, email, phone, is_regular, defense_rating, forward_rating, goalie_rating)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.leagueId,
+        name,
+        email || null,
+        phone || null,
+        is_regular ? 1 : 0,
+        normalizeRating(defense_rating),
+        normalizeRating(forward_rating),
+        normalizeRating(goalie_rating),
+      ]
     );
 
     const player = await getAsync('SELECT * FROM players WHERE id = ?', [result.lastID]) as Player;
@@ -78,16 +99,21 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
       return res.status(403).json({ error: 'League context required' });
     }
 
-    const { name, email, phone, is_regular, is_active } = req.body;
+    const { name, email, phone, is_regular, is_active, defense_rating, forward_rating, goalie_rating } = req.body;
 
     await runAsync(
-      'UPDATE players SET name = ?, email = ?, phone = ?, is_regular = ?, is_active = ? WHERE id = ? AND league_id = ?',
+      `UPDATE players
+      SET name = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
+      WHERE id = ? AND league_id = ?`,
       [
         name,
         email || null,
         phone || null,
         is_regular ? 1 : 0,
         is_active ? 1 : 0,
+        normalizeRating(defense_rating),
+        normalizeRating(forward_rating),
+        normalizeRating(goalie_rating),
         req.params.id,
         req.leagueId,
       ]

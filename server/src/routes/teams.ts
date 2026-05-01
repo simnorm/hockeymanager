@@ -5,6 +5,38 @@ import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth
 
 const router = express.Router();
 
+interface RatedPlayer {
+  id: number;
+  name: string;
+  defense_rating: number;
+  forward_rating: number;
+  goalie_rating: number;
+}
+
+interface TeamScore {
+  players: number;
+  defense: number;
+  forward: number;
+  goalie: number;
+}
+
+function withPlayer(score: TeamScore, player: RatedPlayer): TeamScore {
+  return {
+    players: score.players + 1,
+    defense: score.defense + player.defense_rating,
+    forward: score.forward + player.forward_rating,
+    goalie: score.goalie + player.goalie_rating,
+  };
+}
+
+function balanceCost(team1: TeamScore, team2: TeamScore): number {
+  return (
+    Math.abs(team1.defense - team2.defense) +
+    Math.abs(team1.forward - team2.forward) +
+    Math.abs(team1.goalie - team2.goalie)
+  );
+}
+
 // Create teams for a game (admin only)
 router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
@@ -95,24 +127,59 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
 
     // Get all players who are present
     const presentPlayers = await allAsync(`
-      SELECT p.id, p.name
+      SELECT p.id, p.name, p.defense_rating, p.forward_rating, p.goalie_rating
       FROM players p
       JOIN attendance a ON p.id = a.player_id
       WHERE a.game_id = ? AND a.status = 'present' AND p.league_id = ?
-      ORDER BY RANDOM()
-    `, [gameId, req.leagueId]) as { id: number; name: string }[];
+    `, [gameId, req.leagueId]) as RatedPlayer[];
 
     if (presentPlayers.length < 2) {
       return res.status(400).json({ error: 'Not enough players confirmed' });
     }
 
+    // Sort strongest players first to improve greedy balancing quality.
+    const sortedPlayers = [...presentPlayers].sort((a, b) => {
+      const totalA = a.defense_rating + a.forward_rating + a.goalie_rating;
+      const totalB = b.defense_rating + b.forward_rating + b.goalie_rating;
+      if (totalA === totalB) {
+        return Math.random() - 0.5;
+      }
+      return totalB - totalA;
+    });
+
     // Delete existing teams
     await runAsync('DELETE FROM teams WHERE game_id = ?', [gameId]);
 
-    // Distribute players evenly
-    for (let i = 0; i < presentPlayers.length; i++) {
-      const teamNumber = (i % 2) + 1;
-      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [gameId, teamNumber, presentPlayers[i].id]);
+    let team1Score: TeamScore = { players: 0, defense: 0, forward: 0, goalie: 0 };
+    let team2Score: TeamScore = { players: 0, defense: 0, forward: 0, goalie: 0 };
+
+    for (const player of sortedPlayers) {
+      let teamNumber = 1;
+
+      if (team1Score.players > team2Score.players) {
+        teamNumber = 2;
+      } else if (team2Score.players > team1Score.players) {
+        teamNumber = 1;
+      } else {
+        const team1Candidate = withPlayer(team1Score, player);
+        const team2Candidate = withPlayer(team2Score, player);
+        const team1Cost = balanceCost(team1Candidate, team2Score);
+        const team2Cost = balanceCost(team1Score, team2Candidate);
+
+        teamNumber = team1Cost <= team2Cost ? 1 : 2;
+      }
+
+      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [
+        gameId,
+        teamNumber,
+        player.id,
+      ]);
+
+      if (teamNumber === 1) {
+        team1Score = withPlayer(team1Score, player);
+      } else {
+        team2Score = withPlayer(team2Score, player);
+      }
     }
 
     // Get created teams

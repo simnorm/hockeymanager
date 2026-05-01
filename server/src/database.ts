@@ -87,6 +87,9 @@ export async function initializeDatabase() {
         phone TEXT,
         is_regular INTEGER DEFAULT 1,
         is_active INTEGER DEFAULT 1,
+        defense_rating INTEGER DEFAULT 5,
+        forward_rating INTEGER DEFAULT 5,
+        goalie_rating INTEGER DEFAULT 5,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (league_id) REFERENCES leagues(id),
         FOREIGN KEY (user_id) REFERENCES users(id)
@@ -118,6 +121,18 @@ export async function initializeDatabase() {
       await runAsync('ALTER TABLE players ADD COLUMN league_id INTEGER REFERENCES leagues(id)');
     }
 
+    if (!(await columnExists('players', 'defense_rating'))) {
+      await runAsync('ALTER TABLE players ADD COLUMN defense_rating INTEGER DEFAULT 5');
+    }
+
+    if (!(await columnExists('players', 'forward_rating'))) {
+      await runAsync('ALTER TABLE players ADD COLUMN forward_rating INTEGER DEFAULT 5');
+    }
+
+    if (!(await columnExists('players', 'goalie_rating'))) {
+      await runAsync('ALTER TABLE players ADD COLUMN goalie_rating INTEGER DEFAULT 5');
+    }
+
     if (!(await columnExists('games', 'league_id'))) {
       await runAsync('ALTER TABLE games ADD COLUMN league_id INTEGER REFERENCES leagues(id)');
     }
@@ -126,6 +141,9 @@ export async function initializeDatabase() {
     await runAsync('UPDATE users SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
     await runAsync('UPDATE players SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
     await runAsync('UPDATE games SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
+    await runAsync('UPDATE players SET defense_rating = 5 WHERE defense_rating IS NULL');
+    await runAsync('UPDATE players SET forward_rating = 5 WHERE forward_rating IS NULL');
+    await runAsync('UPDATE players SET goalie_rating = 5 WHERE goalie_rating IS NULL');
 
     await runAsync('CREATE INDEX IF NOT EXISTS idx_users_league_id ON users(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_players_league_id ON players(league_id)');

@@ -13,6 +13,9 @@ export interface Player {
   phone?: string;
   is_regular: number;
   is_active: number;
+  defense_rating: number;
+  forward_rating: number;
+  goalie_rating: number;
   created_at: string;
 }
 
