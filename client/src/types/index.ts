@@ -43,6 +43,19 @@ export interface Attendance {
   is_regular?: number;
 }
 
+export interface ReplacementSuggestion {
+  playerId: number;
+  name: string;
+  isRegular: boolean;
+  score: number;
+}
+
+export interface AttendanceUpdateResponse {
+  attendance: Attendance;
+  replacementSuggestions: ReplacementSuggestion[];
+  replacementMessage?: string;
+}
+
 export interface Team {
   team_number: number;
   player_id: number;

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { AttendanceUpdateResponse } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -44,7 +45,7 @@ export const gamesApi = {
 // Attendance API
 export const attendanceApi = {
   update: (gameId: number, playerId: number, status: 'present' | 'absent') =>
-    api.put(`/attendance/${gameId}/${playerId}`, { status }),
+    api.put<AttendanceUpdateResponse>(`/attendance/${gameId}/${playerId}`, { status }),
 };
 
 // Teams API

@@ -266,16 +266,15 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
       return res.status(404).json({ error: 'Game not found' });
     }
 
-    // Get all players who are present
+    // Build planning teams from active regulars, independent of attendance confirmations.
     const presentPlayers = await allAsync(`
       SELECT p.id, p.name, p.position, p.offense_weight, p.defense_weight, p.defense_rating, p.forward_rating, p.goalie_rating
       FROM players p
-      JOIN attendance a ON p.id = a.player_id
-      WHERE a.game_id = ? AND a.status = 'present' AND p.league_id = ?
-    `, [gameId, req.leagueId]) as RatedPlayer[];
+      WHERE p.league_id = ? AND p.is_active = 1 AND p.is_regular = 1
+    `, [req.leagueId]) as RatedPlayer[];
 
     if (presentPlayers.length < 2) {
-      return res.status(400).json({ error: 'Not enough players confirmed' });
+      return res.status(400).json({ error: 'Not enough regular players available' });
     }
 
     const skaters = presentPlayers.filter((p) => p.position !== 'goalie');
