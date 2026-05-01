@@ -32,6 +32,7 @@ export function GameDetailPage() {
   const [loading, setLoading] = useState(true);
   const [openScoreDialog, setOpenScoreDialog] = useState(false);
   const [scores, setScores] = useState({ team1: 0, team2: 0 });
+  const [actionAlert, setActionAlert] = useState<{ severity: 'info' | 'warning' | 'error'; message: string } | null>(null);
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -56,9 +57,32 @@ export function GameDetailPage() {
 
   const handleAttendance = async (playerId: number, status: 'present' | 'absent') => {
     try {
-      await attendanceApi.update(Number(id), playerId, status);
-      loadGame();
-    } catch (error) {
+      const response = await attendanceApi.update(Number(id), playerId, status);
+      const data = response.data;
+
+      if (status === 'absent') {
+        if (data.replacementSuggestions.length > 0) {
+          const names = data.replacementSuggestions.map((candidate) => candidate.name).join(', ');
+          setActionAlert({
+            severity: 'info',
+            message: `${data.replacementMessage || 'Suggested replacements'} ${names}`,
+          });
+        } else if (data.replacementMessage) {
+          setActionAlert({
+            severity: 'warning',
+            message: data.replacementMessage,
+          });
+        }
+      } else {
+        setActionAlert(null);
+      }
+
+      await loadGame();
+    } catch (error: any) {
+      setActionAlert({
+        severity: 'error',
+        message: error?.response?.data?.error || 'Failed to update attendance',
+      });
       console.error('Failed to update attendance:', error);
     }
   };
@@ -66,8 +90,13 @@ export function GameDetailPage() {
   const handleAutoBalance = async () => {
     try {
       await teamsApi.autoBalance(Number(id));
-      loadGame();
-    } catch (error) {
+      setActionAlert(null);
+      await loadGame();
+    } catch (error: any) {
+      setActionAlert({
+        severity: 'error',
+        message: error?.response?.data?.error || 'Failed to auto-balance teams',
+      });
       console.error('Failed to auto-balance teams:', error);
     }
   };
@@ -150,16 +179,17 @@ export function GameDetailPage() {
           )}
         </Paper>
 
+        {actionAlert && (
+          <Alert severity={actionAlert.severity} sx={{ mb: 3 }}>
+            {actionAlert.message}
+          </Alert>
+        )}
+
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h5">Attendance</Typography>
-                {user?.isAdmin && presentPlayers.length >= 4 && (
-                  <Button variant="outlined" size="small" onClick={handleAutoBalance}>
-                    Auto-Balance Teams
-                  </Button>
-                )}
               </Box>
 
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -254,13 +284,18 @@ export function GameDetailPage() {
 
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h5" gutterBottom>
-                Teams
-              </Typography>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h5">Teams</Typography>
+                {user?.isAdmin && (
+                  <Button variant="outlined" size="small" onClick={handleAutoBalance}>
+                    Create Teams From Regulars
+                  </Button>
+                )}
+              </Box>
 
               {team1.length === 0 && team2.length === 0 ? (
                 <Alert severity="info">
-                  Teams not created yet. Confirm attendance first.
+                  Teams not created yet. Use "Create Teams From Regulars" to plan teams before attendance is confirmed.
                 </Alert>
               ) : (
                 <Grid container spacing={2}>
