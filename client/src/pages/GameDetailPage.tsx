@@ -25,6 +25,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { gamesApi, attendanceApi, teamsApi } from '../services/api';
 import { GameWithDetails } from '../types';
+import { useI18n } from '../contexts/I18nContext';
 import { Navigation } from '../components/Navigation';
 
 export function GameDetailPage() {
@@ -35,6 +36,7 @@ export function GameDetailPage() {
   const [actionAlert, setActionAlert] = useState<{ severity: 'info' | 'warning' | 'error'; message: string } | null>(null);
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export function GameDetailPage() {
     } catch (error: any) {
       setActionAlert({
         severity: 'error',
-        message: error?.response?.data?.error || 'Failed to update attendance',
+        message: error?.response?.data?.error || t('gameDetail.failedAttendance'),
       });
       console.error('Failed to update attendance:', error);
     }
@@ -95,7 +97,7 @@ export function GameDetailPage() {
     } catch (error: any) {
       setActionAlert({
         severity: 'error',
-        message: error?.response?.data?.error || 'Failed to auto-balance teams',
+        message: error?.response?.data?.error || t('gameDetail.failedAutoBalance'),
       });
       console.error('Failed to auto-balance teams:', error);
     }
@@ -132,7 +134,7 @@ export function GameDetailPage() {
       <>
         <Navigation />
         <Container maxWidth="lg" sx={{ mt: 4 }}>
-          <Typography>Game not found</Typography>
+          <Typography>{t('gameDetail.gameNotFound')}</Typography>
         </Container>
       </>
     );
@@ -150,30 +152,33 @@ export function GameDetailPage() {
       <Navigation />
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Button onClick={() => navigate('/')} sx={{ mb: 2 }}>
-          ← Back to Games
+          ← {t('gameDetail.back')}
         </Button>
 
         <Paper sx={{ p: 3, mb: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h4">
-              Game on {new Date(game.date).toLocaleDateString()}
+              {t('gameDetail.titlePrefix')} {new Date(game.date).toLocaleDateString()}
             </Typography>
-            <Chip label={game.status} color="primary" />
+            <Chip
+              label={t(`games.status.${game.status}` as 'games.status.scheduled' | 'games.status.completed' | 'games.status.cancelled')}
+              color="primary"
+            />
           </Box>
           
-          {game.time && <Typography>Time: {game.time}</Typography>}
-          {game.location && <Typography>Location: {game.location}</Typography>}
+          {game.time && <Typography>{t('gameDetail.time')}: {game.time}</Typography>}
+          {game.location && <Typography>{t('gameDetail.location')}: {game.location}</Typography>}
           
           {game.status === 'completed' && game.team1_score !== undefined && (
             <Typography variant="h5" sx={{ mt: 2 }}>
-              Final Score: {game.team1_score} - {game.team2_score}
+              {t('gameDetail.finalScore')}: {game.team1_score} - {game.team2_score}
             </Typography>
           )}
 
           {user?.isAdmin && game.status !== 'completed' && (
             <Box mt={2}>
               <Button variant="contained" onClick={() => setOpenScoreDialog(true)}>
-                Record Score
+                {t('gameDetail.recordScore')}
               </Button>
             </Box>
           )}
@@ -189,11 +194,11 @@ export function GameDetailPage() {
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h5">Attendance</Typography>
+                <Typography variant="h5">{t('gameDetail.attendance')}</Typography>
               </Box>
 
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Present ({presentPlayers.length})
+                {t('gameDetail.present')} ({presentPlayers.length})
               </Typography>
               <List dense>
                 {presentPlayers.map((att) => (
@@ -201,14 +206,14 @@ export function GameDetailPage() {
                     <CheckCircleIcon color="success" sx={{ mr: 1 }} />
                     <ListItemText
                       primary={att.player_name}
-                      secondary={att.is_regular ? 'Regular' : 'Sub'}
+                      secondary={att.is_regular ? t('players.regular') : t('players.sub')}
                     />
                     {user?.isAdmin && (
                       <Button
                         size="small"
                         onClick={() => handleAttendance(att.player_id, 'absent')}
                       >
-                        Mark Absent
+                        {t('gameDetail.markAbsent')}
                       </Button>
                     )}
                   </ListItem>
@@ -219,14 +224,14 @@ export function GameDetailPage() {
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Pending ({pendingPlayers.length})
+                    {t('gameDetail.pending')} ({pendingPlayers.length})
                   </Typography>
                   <List dense>
                     {pendingPlayers.map((att) => (
                       <ListItem key={att.id}>
                         <ListItemText
                           primary={att.player_name}
-                          secondary={att.is_regular ? 'Regular' : 'Sub'}
+                          secondary={att.is_regular ? t('players.regular') : t('players.sub')}
                         />
                         {user?.isAdmin && (
                           <Box>
@@ -235,14 +240,14 @@ export function GameDetailPage() {
                               color="success"
                               onClick={() => handleAttendance(att.player_id, 'present')}
                             >
-                              Present
+                              {t('gameDetail.present')}
                             </Button>
                             <Button
                               size="small"
                               color="error"
                               onClick={() => handleAttendance(att.player_id, 'absent')}
                             >
-                              Absent
+                              {t('gameDetail.absent')}
                             </Button>
                           </Box>
                         )}
@@ -256,7 +261,7 @@ export function GameDetailPage() {
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Absent ({absentPlayers.length})
+                    {t('gameDetail.absent')} ({absentPlayers.length})
                   </Typography>
                   <List dense>
                     {absentPlayers.map((att) => (
@@ -264,14 +269,14 @@ export function GameDetailPage() {
                         <CancelIcon color="error" sx={{ mr: 1 }} />
                         <ListItemText
                           primary={att.player_name}
-                          secondary={att.is_regular ? 'Regular' : 'Sub'}
+                          secondary={att.is_regular ? t('players.regular') : t('players.sub')}
                         />
                         {user?.isAdmin && (
                           <Button
                             size="small"
                             onClick={() => handleAttendance(att.player_id, 'present')}
                           >
-                            Mark Present
+                            {t('gameDetail.markPresent')}
                           </Button>
                         )}
                       </ListItem>
@@ -285,23 +290,23 @@ export function GameDetailPage() {
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h5">Teams</Typography>
+                <Typography variant="h5">{t('gameDetail.teams')}</Typography>
                 {user?.isAdmin && (
                   <Button variant="outlined" size="small" onClick={handleAutoBalance}>
-                    Create Teams From Regulars
+                    {t('gameDetail.createTeamsFromRegulars')}
                   </Button>
                 )}
               </Box>
 
               {team1.length === 0 && team2.length === 0 ? (
                 <Alert severity="info">
-                  Teams not created yet. Use "Create Teams From Regulars" to plan teams before attendance is confirmed.
+                  {t('gameDetail.teamsEmpty')}
                 </Alert>
               ) : (
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <Typography variant="h6" color="primary">
-                      Team 1
+                      {t('gameDetail.team1')}
                     </Typography>
                     <List dense>
                       {team1.map((player) => (
@@ -313,7 +318,7 @@ export function GameDetailPage() {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="h6" color="secondary">
-                      Team 2
+                      {t('gameDetail.team2')}
                     </Typography>
                     <List dense>
                       {team2.map((player) => (
@@ -330,18 +335,18 @@ export function GameDetailPage() {
         </Grid>
 
         <Dialog open={openScoreDialog} onClose={() => setOpenScoreDialog(false)}>
-          <DialogTitle>Record Game Score</DialogTitle>
+          <DialogTitle>{t('gameDetail.scoreDialog')}</DialogTitle>
           <DialogContent>
             <Box display="flex" gap={2} mt={2}>
               <TextField
-                label="Team 1 Score"
+                label={t('gameDetail.team1Score')}
                 type="number"
                 value={scores.team1}
                 onChange={(e) => setScores({ ...scores, team1: Number(e.target.value) })}
                 fullWidth
               />
               <TextField
-                label="Team 2 Score"
+                label={t('gameDetail.team2Score')}
                 type="number"
                 value={scores.team2}
                 onChange={(e) => setScores({ ...scores, team2: Number(e.target.value) })}
@@ -350,9 +355,9 @@ export function GameDetailPage() {
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenScoreDialog(false)}>Cancel</Button>
+            <Button onClick={() => setOpenScoreDialog(false)}>{t('games.cancel')}</Button>
             <Button onClick={handleSaveScore} variant="contained">
-              Save Score
+              {t('gameDetail.saveScore')}
             </Button>
           </DialogActions>
         </Dialog>

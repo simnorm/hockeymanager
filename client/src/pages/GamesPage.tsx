@@ -18,6 +18,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import { gamesApi } from '../services/api';
 import { Game } from '../types';
 import { Navigation } from '../components/Navigation';
@@ -28,6 +29,7 @@ export function GamesPage() {
   const [openDialog, setOpenDialog] = useState(false);
   const [newGame, setNewGame] = useState({ date: '', time: '', location: '' });
   const { user } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -83,14 +85,14 @@ export function GamesPage() {
       <Navigation />
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h4">Games</Typography>
+          <Typography variant="h4">{t('games.title')}</Typography>
           {user?.isAdmin && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setOpenDialog(true)}
             >
-              New Game
+              {t('games.newGame')}
             </Button>
           )}
         </Box>
@@ -107,24 +109,24 @@ export function GamesPage() {
                     <Typography variant="h6">
                       {new Date(game.date).toLocaleDateString()}
                     </Typography>
-                    <Chip label={game.status} color={getStatusColor(game.status)} size="small" />
+                    <Chip label={t(`games.status.${game.status}` as 'games.status.scheduled' | 'games.status.completed' | 'games.status.cancelled')} color={getStatusColor(game.status)} size="small" />
                   </Box>
                   
                   {game.time && (
                     <Typography variant="body2" color="text.secondary">
-                      Time: {game.time}
+                      {t('games.time')}: {game.time}
                     </Typography>
                   )}
                   
                   {game.location && (
                     <Typography variant="body2" color="text.secondary">
-                      Location: {game.location}
+                      {t('games.location')}: {game.location}
                     </Typography>
                   )}
                   
                   {game.status === 'completed' && game.team1_score !== undefined && (
                     <Typography variant="h6" sx={{ mt: 2 }}>
-                      Score: {game.team1_score} - {game.team2_score}
+                      {t('games.score')}: {game.team1_score} - {game.team2_score}
                     </Typography>
                   )}
                 </CardContent>
@@ -136,17 +138,17 @@ export function GamesPage() {
         {games.length === 0 && (
           <Box textAlign="center" mt={8}>
             <Typography variant="h6" color="text.secondary">
-              No games scheduled yet
+              {t('games.none')}
             </Typography>
           </Box>
         )}
 
         <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Create New Game</DialogTitle>
+          <DialogTitle>{t('games.createTitle')}</DialogTitle>
           <DialogContent>
             <TextField
               fullWidth
-              label="Date"
+              label={t('games.date')}
               type="date"
               value={newGame.date}
               onChange={(e) => setNewGame({ ...newGame, date: e.target.value })}
@@ -156,7 +158,7 @@ export function GamesPage() {
             />
             <TextField
               fullWidth
-              label="Time"
+              label={t('games.time')}
               type="time"
               value={newGame.time}
               onChange={(e) => setNewGame({ ...newGame, time: e.target.value })}
@@ -165,16 +167,16 @@ export function GamesPage() {
             />
             <TextField
               fullWidth
-              label="Location"
+              label={t('games.location')}
               value={newGame.location}
               onChange={(e) => setNewGame({ ...newGame, location: e.target.value })}
               margin="normal"
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+            <Button onClick={() => setOpenDialog(false)}>{t('games.cancel')}</Button>
             <Button onClick={handleCreateGame} variant="contained" disabled={!newGame.date}>
-              Create
+              {t('games.create')}
             </Button>
           </DialogActions>
         </Dialog>
