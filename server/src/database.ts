@@ -83,10 +83,13 @@ export async function initializeDatabase() {
         league_id INTEGER,
         user_id INTEGER,
         name TEXT NOT NULL,
+        position TEXT DEFAULT 'forward',
         email TEXT,
         phone TEXT,
         is_regular INTEGER DEFAULT 1,
         is_active INTEGER DEFAULT 1,
+        offense_weight INTEGER DEFAULT 5,
+        defense_weight INTEGER DEFAULT 5,
         defense_rating INTEGER DEFAULT 5,
         forward_rating INTEGER DEFAULT 5,
         goalie_rating INTEGER DEFAULT 5,
@@ -121,6 +124,18 @@ export async function initializeDatabase() {
       await runAsync('ALTER TABLE players ADD COLUMN league_id INTEGER REFERENCES leagues(id)');
     }
 
+    if (!(await columnExists('players', 'position'))) {
+      await runAsync("ALTER TABLE players ADD COLUMN position TEXT DEFAULT 'forward'");
+    }
+
+    if (!(await columnExists('players', 'offense_weight'))) {
+      await runAsync('ALTER TABLE players ADD COLUMN offense_weight INTEGER DEFAULT 5');
+    }
+
+    if (!(await columnExists('players', 'defense_weight'))) {
+      await runAsync('ALTER TABLE players ADD COLUMN defense_weight INTEGER DEFAULT 5');
+    }
+
     if (!(await columnExists('players', 'defense_rating'))) {
       await runAsync('ALTER TABLE players ADD COLUMN defense_rating INTEGER DEFAULT 5');
     }
@@ -141,6 +156,9 @@ export async function initializeDatabase() {
     await runAsync('UPDATE users SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
     await runAsync('UPDATE players SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
     await runAsync('UPDATE games SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
+    await runAsync("UPDATE players SET position = 'forward' WHERE position IS NULL");
+    await runAsync('UPDATE players SET offense_weight = 5 WHERE offense_weight IS NULL');
+    await runAsync('UPDATE players SET defense_weight = 5 WHERE defense_weight IS NULL');
     await runAsync('UPDATE players SET defense_rating = 5 WHERE defense_rating IS NULL');
     await runAsync('UPDATE players SET forward_rating = 5 WHERE forward_rating IS NULL');
     await runAsync('UPDATE players SET goalie_rating = 5 WHERE goalie_rating IS NULL');

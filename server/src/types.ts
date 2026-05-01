@@ -4,6 +4,8 @@ export interface League {
   created_at: string;
 }
 
+export type PlayerPosition = 'forward' | 'defense' | 'goalie';
+
 export interface User {
   id: number;
   username: string;
@@ -18,10 +20,13 @@ export interface Player {
   league_id: number;
   user_id?: number;
   name: string;
+  position: PlayerPosition;
   email?: string;
   phone?: string;
   is_regular: number;
   is_active: number;
+  offense_weight: number;
+  defense_weight: number;
   defense_rating: number;
   forward_rating: number;
   goalie_rating: number;

@@ -9,10 +9,13 @@ export interface Player {
   id: number;
   user_id?: number;
   name: string;
+  position: 'forward' | 'defense' | 'goalie';
   email?: string;
   phone?: string;
   is_regular: number;
   is_active: number;
+  offense_weight: number;
+  defense_weight: number;
   defense_rating: number;
   forward_rating: number;
   goalie_rating: number;

@@ -8,6 +8,9 @@ const router = express.Router();
 interface RatedPlayer {
   id: number;
   name: string;
+  position: 'forward' | 'defense' | 'goalie';
+  offense_weight: number;
+  defense_weight: number;
   defense_rating: number;
   forward_rating: number;
   goalie_rating: number;
@@ -18,6 +21,12 @@ interface TeamScore {
   defense: number;
   forward: number;
   goalie: number;
+}
+
+interface TeamRoleCount {
+  forwards: number;
+  defense: number;
+  goalies: number;
 }
 
 function withPlayer(score: TeamScore, player: RatedPlayer): TeamScore {
@@ -35,6 +44,138 @@ function balanceCost(team1: TeamScore, team2: TeamScore): number {
     Math.abs(team1.forward - team2.forward) +
     Math.abs(team1.goalie - team2.goalie)
   );
+}
+
+const LINEUP = {
+  forwardsPerTeam: 6,
+  defensePerTeam: 4,
+  goaliesPerTeam: 1,
+};
+
+function getRoleRating(player: RatedPlayer, role: 'forward' | 'defense' | 'goalie'): number {
+  if (role === 'forward') {
+    return player.forward_rating;
+  }
+
+  if (role === 'defense') {
+    return player.defense_rating;
+  }
+
+  return player.goalie_rating;
+}
+
+function getRoleWeight(player: RatedPlayer, role: 'forward' | 'defense'): number {
+  return role === 'forward' ? player.offense_weight : player.defense_weight;
+}
+
+function assignRolePlayers(
+  rolePlayers: RatedPlayer[],
+  role: 'forward' | 'defense' | 'goalie',
+  basePerTeam: number,
+  assignedTeam1: RatedPlayer[],
+  assignedTeam2: RatedPlayer[],
+  team1Score: TeamScore,
+  team2Score: TeamScore,
+  team1Roles: TeamRoleCount,
+  team2Roles: TeamRoleCount
+): void {
+  const sortedByRole = [...rolePlayers].sort((a, b) => getRoleRating(b, role) - getRoleRating(a, role));
+  const baseTotal = basePerTeam * 2;
+  const starters = sortedByRole.slice(0, baseTotal);
+  const extras = sortedByRole.slice(baseTotal);
+
+  for (const player of starters) {
+    const team1RoleCount = role === 'forward' ? team1Roles.forwards : role === 'defense' ? team1Roles.defense : team1Roles.goalies;
+    const team2RoleCount = role === 'forward' ? team2Roles.forwards : role === 'defense' ? team2Roles.defense : team2Roles.goalies;
+
+    let chooseTeam = 1;
+    if (team1RoleCount >= basePerTeam) {
+      chooseTeam = 2;
+    } else if (team2RoleCount >= basePerTeam) {
+      chooseTeam = 1;
+    } else {
+      const ratingDiffIfTeam1 = Math.abs(
+        (role === 'forward' ? team1Score.forward : role === 'defense' ? team1Score.defense : team1Score.goalie) + getRoleRating(player, role) -
+        (role === 'forward' ? team2Score.forward : role === 'defense' ? team2Score.defense : team2Score.goalie)
+      );
+
+      const ratingDiffIfTeam2 = Math.abs(
+        (role === 'forward' ? team1Score.forward : role === 'defense' ? team1Score.defense : team1Score.goalie) -
+        ((role === 'forward' ? team2Score.forward : role === 'defense' ? team2Score.defense : team2Score.goalie) + getRoleRating(player, role))
+      );
+
+      chooseTeam = ratingDiffIfTeam1 <= ratingDiffIfTeam2 ? 1 : 2;
+    }
+
+    if (chooseTeam === 1) {
+      assignedTeam1.push(player);
+      if (role === 'forward') team1Roles.forwards += 1;
+      if (role === 'defense') team1Roles.defense += 1;
+      if (role === 'goalie') team1Roles.goalies += 1;
+      team1Score.players += 1;
+      if (role === 'forward') team1Score.forward += player.forward_rating;
+      if (role === 'defense') team1Score.defense += player.defense_rating;
+      if (role === 'goalie') team1Score.goalie += player.goalie_rating;
+    } else {
+      assignedTeam2.push(player);
+      if (role === 'forward') team2Roles.forwards += 1;
+      if (role === 'defense') team2Roles.defense += 1;
+      if (role === 'goalie') team2Roles.goalies += 1;
+      team2Score.players += 1;
+      if (role === 'forward') team2Score.forward += player.forward_rating;
+      if (role === 'defense') team2Score.defense += player.defense_rating;
+      if (role === 'goalie') team2Score.goalie += player.goalie_rating;
+    }
+  }
+
+  for (const player of extras) {
+    const team1Candidate = withPlayer(team1Score, player);
+    const team2Candidate = withPlayer(team2Score, player);
+
+    const team1Cost = balanceCost(team1Candidate, team2Score);
+    const team2Cost = balanceCost(team1Score, team2Candidate);
+
+    let chooseTeam = 1;
+    if (team1Score.players > team2Score.players) {
+      chooseTeam = 2;
+    } else if (team2Score.players > team1Score.players) {
+      chooseTeam = 1;
+    } else {
+      chooseTeam = team1Cost <= team2Cost ? 1 : 2;
+    }
+
+    if (chooseTeam === 1) {
+      assignedTeam1.push(player);
+      team1Score.players += 1;
+      if (role === 'forward') {
+        team1Roles.forwards += 1;
+        team1Score.forward += player.forward_rating;
+      }
+      if (role === 'defense') {
+        team1Roles.defense += 1;
+        team1Score.defense += player.defense_rating;
+      }
+      if (role === 'goalie') {
+        team1Roles.goalies += 1;
+        team1Score.goalie += player.goalie_rating;
+      }
+    } else {
+      assignedTeam2.push(player);
+      team2Score.players += 1;
+      if (role === 'forward') {
+        team2Roles.forwards += 1;
+        team2Score.forward += player.forward_rating;
+      }
+      if (role === 'defense') {
+        team2Roles.defense += 1;
+        team2Score.defense += player.defense_rating;
+      }
+      if (role === 'goalie') {
+        team2Roles.goalies += 1;
+        team2Score.goalie += player.goalie_rating;
+      }
+    }
+  }
 }
 
 // Create teams for a game (admin only)
@@ -127,7 +268,7 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
 
     // Get all players who are present
     const presentPlayers = await allAsync(`
-      SELECT p.id, p.name, p.defense_rating, p.forward_rating, p.goalie_rating
+      SELECT p.id, p.name, p.position, p.offense_weight, p.defense_weight, p.defense_rating, p.forward_rating, p.goalie_rating
       FROM players p
       JOIN attendance a ON p.id = a.player_id
       WHERE a.game_id = ? AND a.status = 'present' AND p.league_id = ?
@@ -137,49 +278,137 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
       return res.status(400).json({ error: 'Not enough players confirmed' });
     }
 
-    // Sort strongest players first to improve greedy balancing quality.
-    const sortedPlayers = [...presentPlayers].sort((a, b) => {
-      const totalA = a.defense_rating + a.forward_rating + a.goalie_rating;
-      const totalB = b.defense_rating + b.forward_rating + b.goalie_rating;
-      if (totalA === totalB) {
-        return Math.random() - 0.5;
-      }
-      return totalB - totalA;
+    const skaters = presentPlayers.filter((p) => p.position !== 'goalie');
+    const goalies = presentPlayers.filter((p) => p.position === 'goalie');
+
+    const offenseOnly = skaters.filter((p) => p.offense_weight > 0 && p.defense_weight === 0);
+    const defenseOnly = skaters.filter((p) => p.defense_weight > 0 && p.offense_weight === 0);
+    const flexibleSkaters = skaters.filter((p) => p.offense_weight > 0 && p.defense_weight > 0);
+
+    const minimumForwards = LINEUP.forwardsPerTeam * 2;
+    const minimumDefense = LINEUP.defensePerTeam * 2;
+    const minimumGoalies = LINEUP.goaliesPerTeam * 2;
+
+    const minimumSkaters = minimumForwards + minimumDefense;
+    if (skaters.length < minimumSkaters) {
+      return res.status(400).json({
+        error: `Not enough skaters for lineup requirements. Need ${minimumSkaters}, got ${skaters.length}.`,
+      });
+    }
+
+    if (goalies.length < minimumGoalies) {
+      return res.status(400).json({
+        error: `Not enough goalies for lineup requirements. Need ${minimumGoalies}, got ${goalies.length}.`,
+      });
+    }
+
+    if (offenseOnly.length > minimumForwards) {
+      return res.status(400).json({
+        error: `Too many offense-only players for this lineup. Max ${minimumForwards}, got ${offenseOnly.length}.`,
+      });
+    }
+
+    if (defenseOnly.length > minimumDefense) {
+      return res.status(400).json({
+        error: `Too many defense-only players for this lineup. Max ${minimumDefense}, got ${defenseOnly.length}.`,
+      });
+    }
+
+    const requiredFlexibleForwards = minimumForwards - offenseOnly.length;
+    const requiredFlexibleDefense = minimumDefense - defenseOnly.length;
+
+    if (flexibleSkaters.length < requiredFlexibleForwards + requiredFlexibleDefense) {
+      return res.status(400).json({
+        error: 'Not enough flexible skaters to satisfy offense/defense lineup weights.',
+      });
+    }
+
+    const sortedFlexibleForwards = [...flexibleSkaters].sort((a, b) => {
+      const scoreA = getRoleWeight(a, 'forward') * 2 + a.forward_rating;
+      const scoreB = getRoleWeight(b, 'forward') * 2 + b.forward_rating;
+      return scoreB - scoreA;
     });
+
+    const offenseFromFlexible = sortedFlexibleForwards.slice(0, requiredFlexibleForwards);
+    const offenseIds = new Set(offenseFromFlexible.map((p) => p.id));
+    const remainingFlexible = sortedFlexibleForwards.filter((p) => !offenseIds.has(p.id));
+
+    const sortedFlexibleDefense = [...remainingFlexible].sort((a, b) => {
+      const scoreA = getRoleWeight(a, 'defense') * 2 + a.defense_rating;
+      const scoreB = getRoleWeight(b, 'defense') * 2 + b.defense_rating;
+      return scoreB - scoreA;
+    });
+
+    const defenseFromFlexible = sortedFlexibleDefense.slice(0, requiredFlexibleDefense);
+    const selectedDefenseIds = new Set(defenseFromFlexible.map((p) => p.id));
+    const extraFlexible = sortedFlexibleDefense.filter((p) => !selectedDefenseIds.has(p.id));
+
+    const forwards = [...offenseOnly, ...offenseFromFlexible];
+    const defense = [...defenseOnly, ...defenseFromFlexible];
+
+    for (const player of extraFlexible) {
+      const forwardScore = getRoleWeight(player, 'forward') * 2 + player.forward_rating;
+      const defenseScore = getRoleWeight(player, 'defense') * 2 + player.defense_rating;
+      if (forwardScore >= defenseScore) {
+        forwards.push(player);
+      } else {
+        defense.push(player);
+      }
+    }
 
     // Delete existing teams
     await runAsync('DELETE FROM teams WHERE game_id = ?', [gameId]);
 
-    let team1Score: TeamScore = { players: 0, defense: 0, forward: 0, goalie: 0 };
-    let team2Score: TeamScore = { players: 0, defense: 0, forward: 0, goalie: 0 };
+    const assignedTeam1: RatedPlayer[] = [];
+    const assignedTeam2: RatedPlayer[] = [];
 
-    for (const player of sortedPlayers) {
-      let teamNumber = 1;
+    const team1Score: TeamScore = { players: 0, defense: 0, forward: 0, goalie: 0 };
+    const team2Score: TeamScore = { players: 0, defense: 0, forward: 0, goalie: 0 };
+    const team1Roles: TeamRoleCount = { forwards: 0, defense: 0, goalies: 0 };
+    const team2Roles: TeamRoleCount = { forwards: 0, defense: 0, goalies: 0 };
 
-      if (team1Score.players > team2Score.players) {
-        teamNumber = 2;
-      } else if (team2Score.players > team1Score.players) {
-        teamNumber = 1;
-      } else {
-        const team1Candidate = withPlayer(team1Score, player);
-        const team2Candidate = withPlayer(team2Score, player);
-        const team1Cost = balanceCost(team1Candidate, team2Score);
-        const team2Cost = balanceCost(team1Score, team2Candidate);
+    assignRolePlayers(
+      goalies,
+      'goalie',
+      LINEUP.goaliesPerTeam,
+      assignedTeam1,
+      assignedTeam2,
+      team1Score,
+      team2Score,
+      team1Roles,
+      team2Roles
+    );
 
-        teamNumber = team1Cost <= team2Cost ? 1 : 2;
-      }
+    assignRolePlayers(
+      defense,
+      'defense',
+      LINEUP.defensePerTeam,
+      assignedTeam1,
+      assignedTeam2,
+      team1Score,
+      team2Score,
+      team1Roles,
+      team2Roles
+    );
 
-      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [
-        gameId,
-        teamNumber,
-        player.id,
-      ]);
+    assignRolePlayers(
+      forwards,
+      'forward',
+      LINEUP.forwardsPerTeam,
+      assignedTeam1,
+      assignedTeam2,
+      team1Score,
+      team2Score,
+      team1Roles,
+      team2Roles
+    );
 
-      if (teamNumber === 1) {
-        team1Score = withPlayer(team1Score, player);
-      } else {
-        team2Score = withPlayer(team2Score, player);
-      }
+    for (const player of assignedTeam1) {
+      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [gameId, 1, player.id]);
+    }
+
+    for (const player of assignedTeam2) {
+      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [gameId, 2, player.id]);
     }
 
     // Get created teams
