@@ -22,7 +22,7 @@ export interface User {
 
 export interface Player {
   id: number;
-  league_id: number;
+  league_id?: number;
   user_id?: number;
   name: string;
   position: PlayerPosition;

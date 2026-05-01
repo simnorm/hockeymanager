@@ -211,7 +211,10 @@ router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest
     if (uniquePlayerIds.length > 0) {
       const placeholders = uniquePlayerIds.map(() => '?').join(', ');
       const playersInLeague = await allAsync(
-        `SELECT id FROM players WHERE league_id = ? AND id IN (${placeholders})`,
+        `SELECT p.id
+         FROM players p
+         JOIN player_leagues pl ON pl.player_id = p.id
+         WHERE pl.league_id = ? AND p.id IN (${placeholders})`,
         [req.leagueId, ...uniquePlayerIds]
       ) as { id: number }[];
 
@@ -237,7 +240,8 @@ router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest
       SELECT t.team_number, t.player_id, p.name as player_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
-      WHERE t.game_id = ? AND p.league_id = ?
+      JOIN player_leagues pl ON pl.player_id = p.id
+      WHERE t.game_id = ? AND pl.league_id = ?
       ORDER BY t.team_number, p.name
     `, [gameId, req.leagueId]) as TeamWithPlayer[];
 
@@ -270,7 +274,8 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
     const presentPlayers = await allAsync(`
       SELECT p.id, p.name, p.position, p.offense_weight, p.defense_weight, p.defense_rating, p.forward_rating, p.goalie_rating
       FROM players p
-      WHERE p.league_id = ? AND p.is_active = 1 AND p.is_regular = 1
+      JOIN player_leagues pl ON pl.player_id = p.id
+      WHERE pl.league_id = ? AND p.is_active = 1 AND p.is_regular = 1
     `, [req.leagueId]) as RatedPlayer[];
 
     if (presentPlayers.length < 2) {
@@ -415,7 +420,8 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
       SELECT t.team_number, t.player_id, p.name as player_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
-      WHERE t.game_id = ? AND p.league_id = ?
+      JOIN player_leagues pl ON pl.player_id = p.id
+      WHERE t.game_id = ? AND pl.league_id = ?
       ORDER BY t.team_number, p.name
     `, [gameId, req.leagueId]) as TeamWithPlayer[];
 

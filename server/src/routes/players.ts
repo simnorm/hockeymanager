@@ -41,7 +41,11 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     }
 
     const players = await allAsync(
-      'SELECT * FROM players WHERE league_id = ? AND is_active = 1 ORDER BY is_regular DESC, name',
+      `SELECT p.*
+       FROM players p
+       JOIN player_leagues pl ON pl.player_id = p.id
+       WHERE pl.league_id = ? AND p.is_active = 1
+       ORDER BY p.is_regular DESC, p.name`,
       [req.leagueId]
     ) as Player[];
     res.json(players);
@@ -58,15 +62,15 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       return res.status(403).json({ error: 'League context required' });
     }
 
-    const player = await getAsync('SELECT * FROM players WHERE id = ? AND league_id = ?', [
-      req.params.id,
-      req.leagueId,
-    ]) as Player;
+    const membership = await getAsync(
+      'SELECT p.* FROM players p JOIN player_leagues pl ON pl.player_id = p.id WHERE p.id = ? AND pl.league_id = ?',
+      [req.params.id, req.leagueId]
+    ) as Player;
 
-    if (!player) {
+    if (!membership) {
       return res.status(404).json({ error: 'Player not found' });
     }
-    res.json(player);
+    res.json(membership);
   } catch (error) {
     console.error('Get player error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -97,6 +101,32 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
       return res.status(400).json({ error: 'Name is required' });
     }
 
+    // If the same email already exists, attach that player to this league.
+    if (email) {
+      const existingByEmail = await getAsync(
+        'SELECT * FROM players WHERE LOWER(email) = LOWER(?)',
+        [email]
+      ) as Player | undefined;
+
+      if (existingByEmail) {
+        const alreadyInLeague = await getAsync(
+          'SELECT id FROM player_leagues WHERE player_id = ? AND league_id = ?',
+          [existingByEmail.id, req.leagueId]
+        ) as { id: number } | undefined;
+
+        if (alreadyInLeague) {
+          return res.status(400).json({ error: 'Player already exists in this league' });
+        }
+
+        await runAsync('INSERT INTO player_leagues (player_id, league_id) VALUES (?, ?)', [
+          existingByEmail.id,
+          req.leagueId,
+        ]);
+
+        return res.status(201).json(existingByEmail);
+      }
+    }
+
     const result = await runAsync(
       `INSERT INTO players
       (league_id, name, position, email, phone, is_regular, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating)
@@ -115,6 +145,11 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
         normalizeRating(goalie_rating),
       ]
     );
+
+    await runAsync('INSERT INTO player_leagues (player_id, league_id) VALUES (?, ?)', [
+      result.lastID,
+      req.leagueId,
+    ]);
 
     const player = await getAsync('SELECT * FROM players WHERE id = ?', [result.lastID]) as Player;
     res.status(201).json(player);
@@ -166,10 +201,10 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
       ]
     );
 
-    const player = await getAsync('SELECT * FROM players WHERE id = ? AND league_id = ?', [
-      req.params.id,
-      req.leagueId,
-    ]) as Player;
+    const player = await getAsync(
+      'SELECT p.* FROM players p JOIN player_leagues pl ON pl.player_id = p.id WHERE p.id = ? AND pl.league_id = ?',
+      [req.params.id, req.leagueId]
+    ) as Player;
 
     if (!player) {
       return res.status(404).json({ error: 'Player not found' });
@@ -189,7 +224,32 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, 
       return res.status(403).json({ error: 'League context required' });
     }
 
-    await runAsync('DELETE FROM players WHERE id = ? AND league_id = ?', [req.params.id, req.leagueId]);
+    // Remove player from this league only; keep shared player if linked to other leagues.
+    await runAsync(
+      `DELETE FROM attendance
+       WHERE player_id = ?
+         AND game_id IN (SELECT id FROM games WHERE league_id = ?)`,
+      [req.params.id, req.leagueId]
+    );
+    await runAsync(
+      `DELETE FROM teams
+       WHERE player_id = ?
+         AND game_id IN (SELECT id FROM games WHERE league_id = ?)`,
+      [req.params.id, req.leagueId]
+    );
+    await runAsync('DELETE FROM player_leagues WHERE player_id = ? AND league_id = ?', [
+      req.params.id,
+      req.leagueId,
+    ]);
+
+    // If no league links remain, delete the player row.
+    const remainingLinks = await getAsync('SELECT id FROM player_leagues WHERE player_id = ? LIMIT 1', [
+      req.params.id,
+    ]) as { id: number } | undefined;
+
+    if (!remainingLinks) {
+      await runAsync('DELETE FROM players WHERE id = ?', [req.params.id]);
+    }
     res.status(204).send();
   } catch (error) {
     console.error('Delete player error:', error);

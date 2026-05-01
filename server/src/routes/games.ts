@@ -44,7 +44,8 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       SELECT a.*, p.name as player_name, p.is_regular
       FROM attendance a
       JOIN players p ON a.player_id = p.id
-      WHERE a.game_id = ? AND p.league_id = ?
+      JOIN player_leagues pl ON pl.player_id = p.id
+      WHERE a.game_id = ? AND pl.league_id = ?
       ORDER BY p.is_regular DESC, p.name
     `, [game.id, req.leagueId]) as AttendanceWithPlayer[];
 
@@ -53,7 +54,8 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       SELECT t.team_number, t.player_id, p.name as player_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
-      WHERE t.game_id = ? AND p.league_id = ?
+      JOIN player_leagues pl ON pl.player_id = p.id
+      WHERE t.game_id = ? AND pl.league_id = ?
       ORDER BY t.team_number, p.name
     `, [game.id, req.leagueId]) as TeamWithPlayer[];
 
@@ -90,7 +92,10 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
 
     // Create attendance records for all active players
     const players = await allAsync(
-      'SELECT id FROM players WHERE league_id = ? AND is_active = 1',
+      `SELECT p.id
+       FROM players p
+       JOIN player_leagues pl ON pl.player_id = p.id
+       WHERE pl.league_id = ? AND p.is_active = 1`,
       [req.leagueId]
     ) as { id: number }[];
 

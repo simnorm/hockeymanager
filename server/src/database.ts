@@ -112,6 +112,19 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Player-league membership table
+    await runAsync(`
+      CREATE TABLE IF NOT EXISTS player_leagues (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        league_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+        FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+        UNIQUE(player_id, league_id)
+      )
+    `);
+
     // Games table
     await runAsync(`
       CREATE TABLE IF NOT EXISTS games (
@@ -179,8 +192,16 @@ export async function initializeDatabase() {
     await runAsync('CREATE INDEX IF NOT EXISTS idx_users_league_id ON users(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_players_league_id ON players(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_games_league_id ON games(league_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_player_leagues_player_id ON player_leagues(player_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_player_leagues_league_id ON player_leagues(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_user_leagues_user_id ON user_leagues(user_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_user_leagues_league_id ON user_leagues(league_id)');
+
+    // Backfill player-league memberships from legacy players.league_id.
+    await runAsync(`
+      INSERT OR IGNORE INTO player_leagues (player_id, league_id)
+      SELECT id, league_id FROM players WHERE league_id IS NOT NULL
+    `);
 
     // Ensure each user has at least one explicit league access entry.
     await runAsync(`

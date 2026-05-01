@@ -93,7 +93,12 @@ router.post('/register', async (req, res) => {
 
     if (playerId) {
       const player = await getAsync(
-        'SELECT id, league_id, user_id FROM players WHERE id = ? AND is_active = 1',
+        `SELECT p.id, pl.league_id, p.user_id
+         FROM players p
+         JOIN player_leagues pl ON pl.player_id = p.id
+         WHERE p.id = ? AND p.is_active = 1
+         ORDER BY pl.id ASC
+         LIMIT 1`,
         [playerId]
       ) as { id: number; league_id: number; user_id: number | null } | undefined;
 
@@ -132,11 +137,13 @@ router.post('/register', async (req, res) => {
 
     // Link to player if playerId provided
     if (playerId) {
-      await runAsync('UPDATE players SET user_id = ? WHERE id = ? AND league_id = ?', [
-        result.lastID,
-        playerId,
-        resolvedLeagueId,
-      ]);
+      await runAsync(
+        `UPDATE players
+         SET user_id = ?
+         WHERE id = ?
+           AND id IN (SELECT player_id FROM player_leagues WHERE league_id = ?)`,
+        [result.lastID, playerId, resolvedLeagueId]
+      );
     }
 
     const token = signToken(result.lastID, false, resolvedLeagueId);

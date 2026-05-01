@@ -53,7 +53,10 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
     }
 
     const targetPlayer = await getAsync(
-      'SELECT id, user_id FROM players WHERE id = ? AND league_id = ?',
+      `SELECT p.id, p.user_id
+       FROM players p
+       JOIN player_leagues pl ON pl.player_id = p.id
+       WHERE p.id = ? AND pl.league_id = ?`,
       [playerId, req.leagueId]
     ) as { id: number; user_id: number | null } | undefined;
 
@@ -116,8 +119,9 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
             goalie_rating,
             offense_weight,
             defense_weight
-          FROM players
-          WHERE id = ? AND league_id = ?`,
+          FROM players p
+          JOIN player_leagues pl ON pl.player_id = p.id
+          WHERE id = ? AND pl.league_id = ?`,
           [playerId, req.leagueId]
         ) as ReplacementCandidate | undefined;
 
@@ -138,7 +142,8 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
             FROM players p
             LEFT JOIN attendance a ON a.player_id = p.id AND a.game_id = ?
             LEFT JOIN teams t ON t.player_id = p.id AND t.game_id = ?
-            WHERE p.league_id = ?
+            JOIN player_leagues pl ON pl.player_id = p.id
+            WHERE pl.league_id = ?
               AND p.is_active = 1
               AND p.position = ?
               AND p.id != ?
