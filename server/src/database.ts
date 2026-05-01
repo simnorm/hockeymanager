@@ -76,6 +76,19 @@ export async function initializeDatabase() {
       )
     `);
 
+    // User-league access table
+    await runAsync(`
+      CREATE TABLE IF NOT EXISTS user_leagues (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        league_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+        UNIQUE(user_id, league_id)
+      )
+    `);
+
     // Players table
     await runAsync(`
       CREATE TABLE IF NOT EXISTS players (
@@ -166,6 +179,14 @@ export async function initializeDatabase() {
     await runAsync('CREATE INDEX IF NOT EXISTS idx_users_league_id ON users(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_players_league_id ON players(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_games_league_id ON games(league_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_user_leagues_user_id ON user_leagues(user_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_user_leagues_league_id ON user_leagues(league_id)');
+
+    // Ensure each user has at least one explicit league access entry.
+    await runAsync(`
+      INSERT OR IGNORE INTO user_leagues (user_id, league_id)
+      SELECT id, league_id FROM users WHERE league_id IS NOT NULL
+    `);
 
     // Attendance table
     await runAsync(`
@@ -198,10 +219,14 @@ export async function initializeDatabase() {
     const adminExists = await getAsync('SELECT id FROM users WHERE username = ?', ['admin']);
     if (!adminExists) {
       const hashedPassword = bcrypt.hashSync('admin123', 10);
-      await runAsync(
+      const adminResult = await runAsync(
         'INSERT INTO users (username, password, is_admin, league_id) VALUES (?, ?, 1, ?)',
         ['admin', hashedPassword, defaultLeague.id]
       );
+      await runAsync('INSERT OR IGNORE INTO user_leagues (user_id, league_id) VALUES (?, ?)', [
+        adminResult.lastID,
+        defaultLeague.id,
+      ]);
       console.log('Default admin user created (username: admin, password: admin123)');
     }
 

@@ -1,8 +1,14 @@
+export interface LeagueAccess {
+  id: number;
+  name: string;
+}
+
 export interface User {
   id: number;
   username: string;
   isAdmin: boolean;
   leagueId?: number;
+  leagues?: LeagueAccess[];
 }
 
 export interface Player {

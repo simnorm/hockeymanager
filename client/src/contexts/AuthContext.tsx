@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authApi } from '../services/api';
-import { User } from '../types';
+import { User, LeagueAccess } from '../types';
 
 interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<void>;
+  switchLeague: (leagueId: number) => Promise<void>;
+  updateLeagues: (leagues: LeagueAccess[]) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -32,6 +34,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(user);
   };
 
+  const switchLeague = async (leagueId: number) => {
+    const response = await authApi.switchLeague(leagueId);
+    const { token, user } = response.data;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    setUser(user);
+  };
+
+  const updateLeagues = (leagues: LeagueAccess[]) => {
+    if (!user) {
+      return;
+    }
+
+    const currentLeagueId = user.leagueId;
+    const hasCurrentLeague = leagues.some((league) => league.id === currentLeagueId);
+    const nextLeagueId = hasCurrentLeague ? currentLeagueId : leagues[0]?.id;
+    const updatedUser: User = {
+      ...user,
+      leagueId: nextLeagueId,
+      leagues,
+    };
+
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -39,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, switchLeague, updateLeagues, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

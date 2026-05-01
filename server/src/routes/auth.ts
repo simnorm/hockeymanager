@@ -1,10 +1,34 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { getAsync, runAsync } from '../database.js';
-import { User } from '../types.js';
+import { allAsync, getAsync, runAsync } from '../database.js';
+import { User, LeagueAccess } from '../types.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
+
+async function getAccessibleLeagues(userId: number, isAdmin: boolean): Promise<LeagueAccess[]> {
+  if (isAdmin) {
+    return await allAsync('SELECT id, name FROM leagues ORDER BY name') as LeagueAccess[];
+  }
+
+  return await allAsync(
+    `SELECT l.id, l.name
+     FROM user_leagues ul
+     JOIN leagues l ON l.id = ul.league_id
+     WHERE ul.user_id = ?
+     ORDER BY l.name`,
+    [userId]
+  ) as LeagueAccess[];
+}
+
+function signToken(userId: number, isAdmin: boolean, leagueId: number): string {
+  return jwt.sign(
+    { userId, isAdmin, leagueId },
+    process.env.JWT_SECRET || 'your-secret-key',
+    { expiresIn: '7d' }
+  );
+}
 
 // Login
 router.post('/login', async (req, res) => {
@@ -23,19 +47,27 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, isAdmin: user.is_admin === 1, leagueId: user.league_id },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
-    );
+    const isAdmin = user.is_admin === 1;
+    const leagues = await getAccessibleLeagues(user.id, isAdmin);
+
+    if (leagues.length === 0) {
+      return res.status(403).json({ error: 'No leagues assigned to this user' });
+    }
+
+    const activeLeagueId = leagues.some((league) => league.id === user.league_id)
+      ? user.league_id
+      : leagues[0].id;
+
+    const token = signToken(user.id, isAdmin, activeLeagueId);
 
     res.json({
       token,
       user: {
         id: user.id,
         username: user.username,
-        isAdmin: user.is_admin === 1,
-        leagueId: user.league_id,
+        isAdmin,
+        leagueId: activeLeagueId,
+        leagues,
       },
     });
   } catch (error) {
@@ -93,6 +125,10 @@ router.post('/register', async (req, res) => {
       'INSERT INTO users (username, password, is_admin, league_id) VALUES (?, ?, 0, ?)',
       [username, hashedPassword, resolvedLeagueId]
     );
+    await runAsync('INSERT INTO user_leagues (user_id, league_id) VALUES (?, ?)', [
+      result.lastID,
+      resolvedLeagueId,
+    ]);
 
     // Link to player if playerId provided
     if (playerId) {
@@ -103,11 +139,7 @@ router.post('/register', async (req, res) => {
       ]);
     }
 
-    const token = jwt.sign(
-      { userId: result.lastID, isAdmin: false, leagueId: resolvedLeagueId },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
-    );
+    const token = signToken(result.lastID, false, resolvedLeagueId);
 
     res.status(201).json({
       token,
@@ -116,10 +148,60 @@ router.post('/register', async (req, res) => {
         username,
         isAdmin: false,
         leagueId: resolvedLeagueId,
+        leagues: [{ id: resolvedLeagueId, name: (await getAsync('SELECT name FROM leagues WHERE id = ?', [resolvedLeagueId]))?.name || 'League' }],
       },
     });
   } catch (error) {
     console.error('Register error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Switch active league
+router.post('/switch-league', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { leagueId } = req.body as { leagueId?: number };
+    if (!leagueId) {
+      return res.status(400).json({ error: 'leagueId is required' });
+    }
+
+    const user = await getAsync('SELECT id, username, is_admin FROM users WHERE id = ?', [req.userId]) as {
+      id: number;
+      username: string;
+      is_admin: number;
+    } | undefined;
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isAdmin = user.is_admin === 1;
+    const leagues = await getAccessibleLeagues(user.id, isAdmin);
+    const hasAccess = leagues.some((league) => league.id === Number(leagueId));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied for selected league' });
+    }
+
+    await runAsync('UPDATE users SET league_id = ? WHERE id = ?', [leagueId, user.id]);
+    const token = signToken(user.id, isAdmin, Number(leagueId));
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        isAdmin,
+        leagueId: Number(leagueId),
+        leagues,
+      },
+    });
+  } catch (error) {
+    console.error('Switch league error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

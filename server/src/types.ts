@@ -4,6 +4,11 @@ export interface League {
   created_at: string;
 }
 
+export interface LeagueAccess {
+  id: number;
+  name: string;
+}
+
 export type PlayerPosition = 'forward' | 'defense' | 'goalie';
 
 export interface User {

@@ -20,6 +20,8 @@ api.interceptors.request.use((config) => {
 export const authApi = {
   login: (username: string, password: string) =>
     api.post('/auth/login', { username, password }),
+  switchLeague: (leagueId: number) =>
+    api.post('/auth/switch-league', { leagueId }),
   register: (username: string, password: string, playerId?: number, leagueId?: number) =>
     api.post('/auth/register', { username, password, playerId, leagueId }),
 };
@@ -53,6 +55,13 @@ export const teamsApi = {
   create: (gameId: number, teams: { team1: number[]; team2: number[] }) =>
     api.post(`/teams/${gameId}`, { teams }),
   autoBalance: (gameId: number) => api.post(`/teams/${gameId}/auto-balance`),
+};
+
+// Leagues API
+export const leaguesApi = {
+  getAll: () => api.get('/leagues'),
+  create: (name: string) => api.post('/leagues', { name }),
+  rename: (leagueId: number, name: string) => api.put(`/leagues/${leagueId}`, { name }),
 };
 
 export default api;

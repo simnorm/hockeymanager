@@ -79,7 +79,17 @@ type TranslationKey =
   | 'gameDetail.failedAutoBalance'
   | 'gameDetail.attendance.present'
   | 'gameDetail.attendance.absent'
-  | 'gameDetail.attendance.pending';
+  | 'gameDetail.attendance.pending'
+  | 'leagues.manage'
+  | 'leagues.title'
+  | 'leagues.newName'
+  | 'leagues.create'
+  | 'leagues.rename'
+  | 'leagues.save'
+  | 'leagues.noLeagues'
+  | 'leagues.failedLoad'
+  | 'leagues.failedCreate'
+  | 'leagues.failedRename';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -160,6 +170,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.attendance.present': 'present',
     'gameDetail.attendance.absent': 'absent',
     'gameDetail.attendance.pending': 'pending',
+    'leagues.manage': 'Manage Leagues',
+    'leagues.title': 'League Management',
+    'leagues.newName': 'League name',
+    'leagues.create': 'Create League',
+    'leagues.rename': 'Rename League',
+    'leagues.save': 'Save',
+    'leagues.noLeagues': 'No leagues found',
+    'leagues.failedLoad': 'Failed to load leagues',
+    'leagues.failedCreate': 'Failed to create league',
+    'leagues.failedRename': 'Failed to rename league',
   },
   fr: {
     'nav.games': 'Matchs',
@@ -239,6 +259,16 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.attendance.present': 'present',
     'gameDetail.attendance.absent': 'absent',
     'gameDetail.attendance.pending': 'en attente',
+    'leagues.manage': 'Gerer les ligues',
+    'leagues.title': 'Gestion des ligues',
+    'leagues.newName': 'Nom de la ligue',
+    'leagues.create': 'Creer la ligue',
+    'leagues.rename': 'Renommer la ligue',
+    'leagues.save': 'Enregistrer',
+    'leagues.noLeagues': 'Aucune ligue trouvee',
+    'leagues.failedLoad': 'Echec du chargement des ligues',
+    'leagues.failedCreate': 'Echec de creation de la ligue',
+    'leagues.failedRename': 'Echec du renommage de la ligue',
   },
 };
 
