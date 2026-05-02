@@ -71,6 +71,7 @@ export interface GameWithDetails extends Game {
 }
 
 export interface AttendanceWithPlayer extends Attendance {
+  user_id?: number;
   player_name: string;
   is_regular: number;
 }

@@ -45,6 +45,7 @@ export interface Attendance {
   player_id: number;
   status: 'pending' | 'present' | 'absent';
   responded_at?: string;
+  user_id?: number;
   player_name?: string;
   is_regular?: number;
 }

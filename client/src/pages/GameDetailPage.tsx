@@ -146,6 +146,8 @@ export function GameDetailPage() {
 
   const team1 = game.teams?.filter((t) => t.team_number === 1) || [];
   const team2 = game.teams?.filter((t) => t.team_number === 2) || [];
+  const canUpdateAttendance = (attendanceUserId?: number) =>
+    Boolean(user && (user.isAdmin || attendanceUserId === user.id));
 
   return (
     <>
@@ -208,7 +210,7 @@ export function GameDetailPage() {
                       primary={att.player_name}
                       secondary={att.is_regular ? t('players.regular') : t('players.sub')}
                     />
-                    {user?.isAdmin && (
+                    {canUpdateAttendance(att.user_id) && (
                       <Button
                         size="small"
                         onClick={() => handleAttendance(att.player_id, 'absent')}
@@ -233,7 +235,7 @@ export function GameDetailPage() {
                           primary={att.player_name}
                           secondary={att.is_regular ? t('players.regular') : t('players.sub')}
                         />
-                        {user?.isAdmin && (
+                        {canUpdateAttendance(att.user_id) && (
                           <Box>
                             <Button
                               size="small"
@@ -271,7 +273,7 @@ export function GameDetailPage() {
                           primary={att.player_name}
                           secondary={att.is_regular ? t('players.regular') : t('players.sub')}
                         />
-                        {user?.isAdmin && (
+                        {canUpdateAttendance(att.user_id) && (
                           <Button
                             size="small"
                             onClick={() => handleAttendance(att.player_id, 'present')}

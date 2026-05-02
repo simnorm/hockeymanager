@@ -40,14 +40,23 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
     }
 
     // Get attendance
-    const attendance = await allAsync(`
-      SELECT a.*, p.name as player_name, p.is_regular
-      FROM attendance a
-      JOIN players p ON a.player_id = p.id
-      JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE a.game_id = ? AND pl.league_id = ?
-      ORDER BY p.is_regular DESC, p.name
-    `, [game.id, req.leagueId]) as AttendanceWithPlayer[];
+    const attendance = await allAsync(
+      `SELECT
+         COALESCE(a.id, -p.id) as id,
+         ? as game_id,
+         p.id as player_id,
+         COALESCE(a.status, 'pending') as status,
+         a.responded_at,
+         p.user_id,
+         p.name as player_name,
+         p.is_regular
+       FROM players p
+       JOIN player_leagues pl ON pl.player_id = p.id
+       LEFT JOIN attendance a ON a.player_id = p.id AND a.game_id = ?
+       WHERE pl.league_id = ? AND p.is_active = 1
+       ORDER BY p.is_regular DESC, p.name`,
+      [game.id, game.id, req.leagueId]
+    ) as AttendanceWithPlayer[];
 
     // Get teams
     const teams = await allAsync(`
