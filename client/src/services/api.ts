@@ -39,6 +39,7 @@ export const playersApi = {
   create: (data: any) => api.post('/players', data),
   update: (id: number, data: any) => api.put(`/players/${id}`, data),
   delete: (id: number) => api.delete(`/players/${id}`),
+  getLeagueCount: (id: number) => api.get(`/players/${id}/league-count`),
 };
 
 // Games API

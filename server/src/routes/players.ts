@@ -41,14 +41,41 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     }
 
     const players = await allAsync(
-      `SELECT p.*
+      `SELECT 
+        p.*,
+        COALESCE(plr.position, p.position) as effective_position,
+        COALESCE(plr.offense_weight, p.offense_weight) as effective_offense_weight,
+        COALESCE(plr.defense_weight, p.defense_weight) as effective_defense_weight,
+        COALESCE(plr.defense_rating, p.defense_rating) as effective_defense_rating,
+        COALESCE(plr.forward_rating, p.forward_rating) as effective_forward_rating,
+        COALESCE(plr.goalie_rating, p.goalie_rating) as effective_goalie_rating
        FROM players p
        JOIN player_leagues pl ON pl.player_id = p.id
+       LEFT JOIN player_league_ratings plr ON plr.player_id = p.id AND plr.league_id = pl.league_id
        WHERE pl.league_id = ? AND p.is_active = 1
        ORDER BY p.is_regular DESC, p.name`,
       [req.leagueId]
-    ) as Player[];
-    res.json(players);
+    ) as (Player & {
+      effective_position: string;
+      effective_offense_weight: number;
+      effective_defense_weight: number;
+      effective_defense_rating: number;
+      effective_forward_rating: number;
+      effective_goalie_rating: number;
+    })[];
+
+    // Transform the results to use effective ratings
+    const transformedPlayers = players.map(player => ({
+      ...player,
+      position: player.effective_position,
+      offense_weight: player.effective_offense_weight,
+      defense_weight: player.effective_defense_weight,
+      defense_rating: player.effective_defense_rating,
+      forward_rating: player.effective_forward_rating,
+      goalie_rating: player.effective_goalie_rating,
+    }));
+
+    res.json(transformedPlayers);
   } catch (error) {
     console.error('Get players error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -124,24 +151,22 @@ router.post('/:id/add-to-current-league', authenticateToken, requireAdmin, async
   }
 });
 
-// Get player by ID
-router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+// Get player league count
+router.get('/:id/league-count', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.leagueId) {
-      return res.status(403).json({ error: 'League context required' });
+    const playerId = Number(req.params.id);
+    if (!Number.isFinite(playerId)) {
+      return res.status(400).json({ error: 'Invalid player id' });
     }
 
-    const membership = await getAsync(
-      'SELECT p.* FROM players p JOIN player_leagues pl ON pl.player_id = p.id WHERE p.id = ? AND pl.league_id = ?',
-      [req.params.id, req.leagueId]
-    ) as Player;
+    const result = await getAsync(
+      'SELECT COUNT(*) as leagueCount FROM player_leagues WHERE player_id = ?',
+      [playerId]
+    ) as { leagueCount: number };
 
-    if (!membership) {
-      return res.status(404).json({ error: 'Player not found' });
-    }
-    res.json(membership);
+    res.json({ leagueCount: result.leagueCount });
   } catch (error) {
-    console.error('Get player error:', error);
+    console.error('Get player league count error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -247,38 +272,106 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
       defense_rating,
       forward_rating,
       goalie_rating,
+      updateScope, // 'league' or 'global'
     } = req.body;
 
-    await runAsync(
-      `UPDATE players
-      SET name = ?, position = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, offense_weight = ?, defense_weight = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
-      WHERE id = ?`,
-      [
-        name,
-        normalizePosition(position),
-        email || null,
-        phone || null,
-        is_regular ? 1 : 0,
-        is_active ? 1 : 0,
-        normalizeWeight(offense_weight),
-        normalizeWeight(defense_weight),
-        normalizeRating(defense_rating),
-        normalizeRating(forward_rating),
-        normalizeRating(goalie_rating),
-        req.params.id,
-      ]
+    const playerId = Number(req.params.id);
+
+    // Check if player exists in this league
+    const leagueMembership = await getAsync(
+      'SELECT id FROM player_leagues WHERE player_id = ? AND league_id = ?',
+      [playerId, req.leagueId]
     );
 
+    if (!leagueMembership) {
+      return res.status(404).json({ error: 'Player not found in this league' });
+    }
+
+    if (updateScope === 'league') {
+      // Update or insert league-specific ratings
+      await runAsync(
+        `INSERT OR REPLACE INTO player_league_ratings
+         (player_id, league_id, position, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [
+          playerId,
+          req.leagueId,
+          normalizePosition(position),
+          normalizeWeight(offense_weight),
+          normalizeWeight(defense_weight),
+          normalizeRating(defense_rating),
+          normalizeRating(forward_rating),
+          normalizeRating(goalie_rating),
+        ]
+      );
+    } else {
+      // Update global player data
+      await runAsync(
+        `UPDATE players
+        SET name = ?, position = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, offense_weight = ?, defense_weight = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
+        WHERE id = ?`,
+        [
+          name,
+          normalizePosition(position),
+          email || null,
+          phone || null,
+          is_regular ? 1 : 0,
+          is_active ? 1 : 0,
+          normalizeWeight(offense_weight),
+          normalizeWeight(defense_weight),
+          normalizeRating(defense_rating),
+          normalizeRating(forward_rating),
+          normalizeRating(goalie_rating),
+          playerId,
+        ]
+      );
+
+      // If updating globally, remove any league-specific overrides for this league
+      await runAsync(
+        'DELETE FROM player_league_ratings WHERE player_id = ? AND league_id = ?',
+        [playerId, req.leagueId]
+      );
+    }
+
+    // Return the updated player data
     const player = await getAsync(
-      'SELECT p.* FROM players p JOIN player_leagues pl ON pl.player_id = p.id WHERE p.id = ? AND pl.league_id = ?',
-      [req.params.id, req.leagueId]
-    ) as Player;
+      `SELECT 
+        p.*,
+        COALESCE(plr.position, p.position) as effective_position,
+        COALESCE(plr.offense_weight, p.offense_weight) as effective_offense_weight,
+        COALESCE(plr.defense_weight, p.defense_weight) as effective_defense_weight,
+        COALESCE(plr.defense_rating, p.defense_rating) as effective_defense_rating,
+        COALESCE(plr.forward_rating, p.forward_rating) as effective_forward_rating,
+        COALESCE(plr.goalie_rating, p.goalie_rating) as effective_goalie_rating
+       FROM players p
+       LEFT JOIN player_league_ratings plr ON plr.player_id = p.id AND plr.league_id = ?
+       WHERE p.id = ?`,
+      [req.leagueId, playerId]
+    ) as (Player & {
+      effective_position: string;
+      effective_offense_weight: number;
+      effective_defense_weight: number;
+      effective_defense_rating: number;
+      effective_forward_rating: number;
+      effective_goalie_rating: number;
+    }) | undefined;
 
     if (!player) {
       return res.status(404).json({ error: 'Player not found' });
     }
 
-    res.json(player);
+    // Transform the result to use effective ratings
+    const transformedPlayer = {
+      ...player,
+      position: player.effective_position,
+      offense_weight: player.effective_offense_weight,
+      defense_weight: player.effective_defense_weight,
+      defense_rating: player.effective_defense_rating,
+      forward_rating: player.effective_forward_rating,
+      goalie_rating: player.effective_goalie_rating,
+    };
+
+    res.json(transformedPlayer);
   } catch (error) {
     console.error('Update player error:', error);
     res.status(500).json({ error: 'Internal server error' });

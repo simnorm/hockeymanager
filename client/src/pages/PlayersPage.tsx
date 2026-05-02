@@ -29,6 +29,8 @@ import {
   ListItem,
   ListItemText,
   Alert,
+  RadioGroup,
+  Radio,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -72,6 +74,8 @@ export function PlayersPage() {
     forward_rating: 5,
     goalie_rating: 5,
   });
+  const [playerLeagueCount, setPlayerLeagueCount] = useState(1);
+  const [updateScope, setUpdateScope] = useState<'league' | 'global'>('league');
   const { user } = useAuth();
   const { t } = useI18n();
 
@@ -112,7 +116,7 @@ export function PlayersPage() {
     }
   };
 
-  const handleOpenEditRatings = (player: Player) => {
+  const handleOpenEditRatings = async (player: Player) => {
     setEditingPlayer(player);
     setEditRatings({
       defense_rating: player.defense_rating,
@@ -122,6 +126,19 @@ export function PlayersPage() {
       offense_weight: player.offense_weight,
       defense_weight: player.defense_weight,
     });
+
+    // Fetch league count for this player
+    try {
+      const response = await playersApi.getLeagueCount(player.id);
+      setPlayerLeagueCount(response.data.leagueCount);
+      // Default to league scope, but allow global if player is in multiple leagues
+      setUpdateScope(response.data.leagueCount > 1 ? 'league' : 'global');
+    } catch (error) {
+      console.error('Failed to load player league count:', error);
+      setPlayerLeagueCount(1);
+      setUpdateScope('global');
+    }
+
     setOpenEditDialog(true);
   };
 
@@ -199,6 +216,7 @@ export function PlayersPage() {
         goalie_rating: clampRating(editRatings.goalie_rating),
         offense_weight: clampRating(editRatings.offense_weight),
         defense_weight: clampRating(editRatings.defense_weight),
+        updateScope,
       });
 
       setOpenEditDialog(false);
@@ -519,6 +537,29 @@ export function PlayersPage() {
               margin="normal"
               inputProps={{ min: 0, max: 10 }}
             />
+
+            {playerLeagueCount > 1 && (
+              <FormControl component="fieldset" margin="normal">
+                <Typography variant="body2" gutterBottom>
+                  {t('players.updateScope')}
+                </Typography>
+                <RadioGroup
+                  value={updateScope}
+                  onChange={(e) => setUpdateScope(e.target.value as 'league' | 'global')}
+                >
+                  <FormControlLabel
+                    value="league"
+                    control={<Radio />}
+                    label={t('players.updateCurrentLeague')}
+                  />
+                  <FormControlLabel
+                    value="global"
+                    control={<Radio />}
+                    label={t('players.updateAllLeagues')}
+                  />
+                </RadioGroup>
+              </FormControl>
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenEditDialog(false)}>{t('players.cancel')}</Button>

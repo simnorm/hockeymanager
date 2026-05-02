@@ -312,6 +312,26 @@ export async function initializeDatabase() {
       )
     `);
 
+    // League-specific player ratings table
+    await runAsync(`
+      CREATE TABLE IF NOT EXISTS player_league_ratings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER NOT NULL,
+        league_id INTEGER NOT NULL,
+        position TEXT,
+        offense_weight INTEGER,
+        defense_weight INTEGER,
+        defense_rating INTEGER,
+        forward_rating INTEGER,
+        goalie_rating INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+        FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+        UNIQUE(player_id, league_id)
+      )
+    `);
+
     // Create default admin user if not exists
     const adminExists = await getAsync('SELECT id FROM users WHERE username = ?', ['admin']);
     if (!adminExists) {

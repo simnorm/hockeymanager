@@ -76,8 +76,9 @@ type TranslationKey =
   | 'players.inviteCopied'
   | 'players.failedInvite'
   | 'players.failedExistingLoad'
-  | 'players.failedAddExisting'
-  | 'gameDetail.back'
+  | 'players.failedAddExisting'  | 'players.updateScope'
+  | 'players.updateCurrentLeague'
+  | 'players.updateAllLeagues'  | 'gameDetail.back'
   | 'gameDetail.titlePrefix'
   | 'gameDetail.series'
   | 'gameDetail.time'
@@ -218,6 +219,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.failedInvite': 'Failed to create invite code',
     'players.failedExistingLoad': 'Failed to load existing players',
     'players.failedAddExisting': 'Failed to add player to league',
+    'players.updateScope': 'Update Scope',
+    'players.updateCurrentLeague': 'Update for current league only',
+    'players.updateAllLeagues': 'Update for all leagues',
     'gameDetail.back': 'Back to Games',
     'gameDetail.titlePrefix': 'Game on',
     'gameDetail.time': 'Time',
@@ -358,6 +362,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.failedInvite': 'Echec de creation du code d\'invitation',
     'players.failedExistingLoad': 'Echec du chargement des joueurs existants',
     'players.failedAddExisting': 'Echec de l\'ajout du joueur a la ligue',
+    'players.updateScope': 'Portee de la mise a jour',
+    'players.updateCurrentLeague': 'Mettre a jour pour cette ligue seulement',
+    'players.updateAllLeagues': 'Mettre a jour pour toutes les ligues',
     'gameDetail.back': 'Retour aux matchs',
     'gameDetail.titlePrefix': 'Match du',
     'gameDetail.time': 'Heure',
