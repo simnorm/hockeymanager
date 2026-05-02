@@ -11,6 +11,8 @@ export interface LeagueAccess {
 
 export type PlayerPosition = 'forward' | 'defense' | 'goalie';
 
+export type ForwardPosition = 'center' | 'winger';
+
 export interface User {
   id: number;
   username: string;
@@ -26,6 +28,7 @@ export interface Player {
   user_id?: number;
   name: string;
   position: PlayerPosition;
+  forward_positions?: string;
   email?: string;
   phone?: string;
   is_regular: number;
@@ -96,6 +99,7 @@ export interface TeamWithPlayer {
   player_id: number;
   player_name: string;
   position: 'forward' | 'defense' | 'goalie';
+  forward_positions?: string;
   team_name?: string;
 }
 

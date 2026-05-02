@@ -101,19 +101,21 @@ async function seedTestData() {
     // Create 22 regular players: 12 forwards, 8 defensemen, 2 goalies
     const regularPlayers = [];
 
-    // 12 Forwards
-    for (let i = 0; i < 12; i++) {
-      regularPlayers.push({
-        name: getRandomName(),
-        position: 'forward' as const,
-        is_regular: 1,
-        offense_weight: getRandomRating(6, 10),
-        defense_weight: getRandomRating(4, 8),
-        defense_rating: getRandomRating(4, 7),
-        forward_rating: getRandomRating(6, 10),
-        goalie_rating: getRandomRating(2, 4),
-      });
-    }
+  // 12 Forwards
+  for (let i = 0; i < 12; i++) {
+    const fwdPos = i < 5 ? '["center","winger"]' : i < 8 ? '["center"]' : '["winger"]';
+    regularPlayers.push({
+      name: getRandomName(),
+      position: 'forward' as const,
+      forward_positions: fwdPos,
+      is_regular: 1,
+      offense_weight: getRandomRating(6, 10),
+      defense_weight: getRandomRating(4, 8),
+      defense_rating: getRandomRating(4, 7),
+      forward_rating: getRandomRating(6, 10),
+      goalie_rating: getRandomRating(2, 4),
+    });
+  }
 
     // 8 Defensemen
     for (let i = 0; i < 8; i++) {
@@ -146,19 +148,21 @@ async function seedTestData() {
     // Create subs: 3 forwards, 2 defensemen, 1 goalie
     const subPlayers = [];
 
-    // 3 Forward subs
-    for (let i = 0; i < 3; i++) {
-      subPlayers.push({
-        name: getRandomName(),
-        position: 'forward' as const,
-        is_regular: 0,
-        offense_weight: getRandomRating(5, 9),
-        defense_weight: getRandomRating(3, 7),
-        defense_rating: getRandomRating(3, 6),
-        forward_rating: getRandomRating(5, 9),
-        goalie_rating: getRandomRating(2, 3),
-      });
-    }
+  // 3 Forward subs
+  for (let i = 0; i < 3; i++) {
+    const fwdPos = i === 0 ? '["center","winger"]' : i === 1 ? '["center"]' : '["winger"]';
+    subPlayers.push({
+      name: getRandomName(),
+      position: 'forward' as const,
+      forward_positions: fwdPos,
+      is_regular: 0,
+      offense_weight: getRandomRating(5, 9),
+      defense_weight: getRandomRating(3, 7),
+      defense_rating: getRandomRating(3, 6),
+      forward_rating: getRandomRating(5, 9),
+      goalie_rating: getRandomRating(2, 3),
+    });
+  }
 
     // 2 Defense subs
     for (let i = 0; i < 2; i++) {
@@ -190,22 +194,23 @@ async function seedTestData() {
 
     // Insert all players
     for (const player of allPlayers) {
-      const result = await runAsync(
-        `INSERT INTO players
-        (league_id, name, position, email, is_regular, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          testLeagueId,
-          player.name,
-          player.position,
-          getRandomEmail(player.name),
-          player.is_regular,
-          player.offense_weight,
-          player.defense_weight,
-          player.defense_rating,
-          player.forward_rating,
-          player.goalie_rating,
-        ]
+    const result = await runAsync(
+      `INSERT INTO players
+      (league_id, name, position, forward_positions, email, is_regular, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        testLeagueId,
+        player.name,
+        player.position,
+        player.forward_positions || null,
+        getRandomEmail(player.name),
+        player.is_regular,
+        player.offense_weight,
+        player.defense_weight,
+        player.defense_rating,
+        player.forward_rating,
+        player.goalie_rating,
+      ]
       );
 
       await runAsync('INSERT INTO player_leagues (player_id, league_id) VALUES (?, ?)', [
@@ -277,15 +282,16 @@ export async function initializeDatabase() {
         phone TEXT,
         is_regular INTEGER DEFAULT 1,
         is_active INTEGER DEFAULT 1,
-        offense_weight INTEGER DEFAULT 5,
-        defense_weight INTEGER DEFAULT 5,
-        defense_rating INTEGER DEFAULT 5,
-        forward_rating INTEGER DEFAULT 5,
-        goalie_rating INTEGER DEFAULT 5,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (league_id) REFERENCES leagues(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
+  forward_positions TEXT,
+  offense_weight INTEGER DEFAULT 5,
+  defense_weight INTEGER DEFAULT 5,
+  defense_rating INTEGER DEFAULT 5,
+  forward_rating INTEGER DEFAULT 5,
+  goalie_rating INTEGER DEFAULT 5,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (league_id) REFERENCES leagues(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+  )
     `);
 
     // Player-league membership table
@@ -418,9 +424,14 @@ export async function initializeDatabase() {
       await runAsync('ALTER TABLE players ADD COLUMN forward_rating INTEGER DEFAULT 5');
     }
 
-    if (!(await columnExists('players', 'goalie_rating'))) {
-      await runAsync('ALTER TABLE players ADD COLUMN goalie_rating INTEGER DEFAULT 5');
-    }
+  if (!(await columnExists('players', 'goalie_rating'))) {
+    await runAsync('ALTER TABLE players ADD COLUMN goalie_rating INTEGER DEFAULT 5');
+  }
+
+  if (!(await columnExists('players', 'forward_positions'))) {
+    await runAsync("ALTER TABLE players ADD COLUMN forward_positions TEXT");
+    await runAsync("UPDATE players SET forward_positions = '[\"center\",\"winger\"]' WHERE position = 'forward'");
+  }
 
     if (!(await columnExists('games', 'league_id'))) {
       await runAsync('ALTER TABLE games ADD COLUMN league_id INTEGER REFERENCES leagues(id)');
@@ -464,9 +475,9 @@ export async function initializeDatabase() {
     await runAsync('CREATE INDEX IF NOT EXISTS idx_notification_logs_created_at ON notification_logs(created_at)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_games_series_id ON games(series_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_teams_series_id ON teams(series_id)');
-    await runAsync('CREATE INDEX IF NOT EXISTS idx_series_league_id ON series(league_id)');
+  await runAsync('CREATE INDEX IF NOT EXISTS idx_series_league_id ON series(league_id)');
 
-    // Backfill player-league memberships from legacy players.league_id.
+  // Backfill player-league memberships from legacy players.league_id.
     await runAsync(`
       INSERT OR IGNORE INTO player_leagues (player_id, league_id)
       SELECT id, league_id FROM players WHERE league_id IS NOT NULL
@@ -493,26 +504,31 @@ export async function initializeDatabase() {
     `);
 
     // League-specific player ratings table
-    await runAsync(`
-      CREATE TABLE IF NOT EXISTS player_league_ratings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        player_id INTEGER NOT NULL,
-        league_id INTEGER NOT NULL,
-        position TEXT,
-        offense_weight INTEGER,
-        defense_weight INTEGER,
-        defense_rating INTEGER,
-        forward_rating INTEGER,
-        goalie_rating INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-        FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
-        UNIQUE(player_id, league_id)
-      )
-    `);
+  await runAsync(`
+    CREATE TABLE IF NOT EXISTS player_league_ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id INTEGER NOT NULL,
+    league_id INTEGER NOT NULL,
+    position TEXT,
+    forward_positions TEXT,
+    offense_weight INTEGER,
+    defense_weight INTEGER,
+    defense_rating INTEGER,
+    forward_rating INTEGER,
+    goalie_rating INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+    FOREIGN KEY (league_id) REFERENCES leagues(id) ON DELETE CASCADE,
+    UNIQUE(player_id, league_id)
+  )
+  `);
 
-    // Create default admin user if not exists
+  if (!(await columnExists('player_league_ratings', 'forward_positions'))) {
+    await runAsync('ALTER TABLE player_league_ratings ADD COLUMN forward_positions TEXT');
+  }
+
+  // Create default admin user if not exists
     const adminExists = await getAsync('SELECT id FROM users WHERE username = ?', ['admin']);
     if (!adminExists) {
       const hashedPassword = bcrypt.hashSync('admin123', 10);

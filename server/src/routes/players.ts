@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { allAsync, getAsync, runAsync } from '../database.js';
-import { Player } from '../types.js';
+import { Player, ForwardPosition } from '../types.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -33,6 +33,21 @@ function normalizePosition(value: unknown): 'forward' | 'defense' | 'goalie' {
   return 'forward';
 }
 
+function normalizeForwardPositions(value: unknown, position: 'forward' | 'defense' | 'goalie'): string | null {
+  if (position !== 'forward') {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    const valid = value.filter((v): v is ForwardPosition => v === 'center' || v === 'winger');
+    if (valid.length > 0) {
+      return JSON.stringify(valid);
+    }
+  }
+
+  return JSON.stringify(['center', 'winger']);
+}
+
 // Get all players
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -42,21 +57,23 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
     const players = await allAsync(
       `SELECT 
-        p.*,
-        COALESCE(plr.position, p.position) as effective_position,
-        COALESCE(plr.offense_weight, p.offense_weight) as effective_offense_weight,
-        COALESCE(plr.defense_weight, p.defense_weight) as effective_defense_weight,
-        COALESCE(plr.defense_rating, p.defense_rating) as effective_defense_rating,
-        COALESCE(plr.forward_rating, p.forward_rating) as effective_forward_rating,
-        COALESCE(plr.goalie_rating, p.goalie_rating) as effective_goalie_rating
-       FROM players p
-       JOIN player_leagues pl ON pl.player_id = p.id
-       LEFT JOIN player_league_ratings plr ON plr.player_id = p.id AND plr.league_id = pl.league_id
-       WHERE pl.league_id = ? AND p.is_active = 1
-       ORDER BY p.is_regular DESC, p.name`,
+      p.*,
+      COALESCE(plr.position, p.position) as effective_position,
+      COALESCE(plr.forward_positions, p.forward_positions) as effective_forward_positions,
+      COALESCE(plr.offense_weight, p.offense_weight) as effective_offense_weight,
+      COALESCE(plr.defense_weight, p.defense_weight) as effective_defense_weight,
+      COALESCE(plr.defense_rating, p.defense_rating) as effective_defense_rating,
+      COALESCE(plr.forward_rating, p.forward_rating) as effective_forward_rating,
+      COALESCE(plr.goalie_rating, p.goalie_rating) as effective_goalie_rating
+      FROM players p
+      JOIN player_leagues pl ON pl.player_id = p.id
+      LEFT JOIN player_league_ratings plr ON plr.player_id = p.id AND plr.league_id = pl.league_id
+      WHERE pl.league_id = ? AND p.is_active = 1
+      ORDER BY p.is_regular DESC, p.name`,
       [req.leagueId]
     ) as (Player & {
       effective_position: string;
+      effective_forward_positions: string | null;
       effective_offense_weight: number;
       effective_defense_weight: number;
       effective_defense_rating: number;
@@ -65,15 +82,16 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     })[];
 
     // Transform the results to use effective ratings
-    const transformedPlayers = players.map(player => ({
-      ...player,
-      position: player.effective_position,
-      offense_weight: player.effective_offense_weight,
-      defense_weight: player.effective_defense_weight,
-      defense_rating: player.effective_defense_rating,
-      forward_rating: player.effective_forward_rating,
-      goalie_rating: player.effective_goalie_rating,
-    }));
+  const transformedPlayers = players.map(player => ({
+    ...player,
+    position: player.effective_position,
+    forward_positions: player.effective_forward_positions,
+    offense_weight: player.effective_offense_weight,
+    defense_weight: player.effective_defense_weight,
+    defense_rating: player.effective_defense_rating,
+    forward_rating: player.effective_forward_rating,
+    goalie_rating: player.effective_goalie_rating,
+  }));
 
     res.json(transformedPlayers);
   } catch (error) {
@@ -184,6 +202,7 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
       phone,
       is_regular,
       position,
+      forward_positions,
       offense_weight,
       defense_weight,
       defense_rating,
@@ -221,14 +240,17 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
       }
     }
 
+    const normalizedPosition = normalizePosition(position);
+
     const result = await runAsync(
       `INSERT INTO players
-      (league_id, name, position, email, phone, is_regular, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (league_id, name, position, forward_positions, email, phone, is_regular, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.leagueId,
         name,
-        normalizePosition(position),
+        normalizedPosition,
+        normalizeForwardPositions(forward_positions, normalizedPosition),
         email || null,
         phone || null,
         is_regular ? 1 : 0,
@@ -267,6 +289,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
       is_regular,
       is_active,
       position,
+      forward_positions,
       offense_weight,
       defense_weight,
       defense_rating,
@@ -287,16 +310,18 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
       return res.status(404).json({ error: 'Player not found in this league' });
     }
 
+    const normalizedPosition = normalizePosition(position);
+
     if (updateScope === 'league') {
-      // Update or insert league-specific ratings
       await runAsync(
         `INSERT OR REPLACE INTO player_league_ratings
-         (player_id, league_id, position, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        (player_id, league_id, position, forward_positions, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         [
           playerId,
           req.leagueId,
-          normalizePosition(position),
+          normalizedPosition,
+          normalizeForwardPositions(forward_positions, normalizedPosition),
           normalizeWeight(offense_weight),
           normalizeWeight(defense_weight),
           normalizeRating(defense_rating),
@@ -305,14 +330,14 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
         ]
       );
     } else {
-      // Update global player data
       await runAsync(
         `UPDATE players
-        SET name = ?, position = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, offense_weight = ?, defense_weight = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
+        SET name = ?, position = ?, forward_positions = ?, email = ?, phone = ?, is_regular = ?, is_active = ?, offense_weight = ?, defense_weight = ?, defense_rating = ?, forward_rating = ?, goalie_rating = ?
         WHERE id = ?`,
         [
           name,
-          normalizePosition(position),
+          normalizedPosition,
+          normalizeForwardPositions(forward_positions, normalizedPosition),
           email || null,
           phone || null,
           is_regular ? 1 : 0,
@@ -334,21 +359,23 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
     }
 
     // Return the updated player data
-    const player = await getAsync(
+  const player = await getAsync(
       `SELECT 
-        p.*,
-        COALESCE(plr.position, p.position) as effective_position,
-        COALESCE(plr.offense_weight, p.offense_weight) as effective_offense_weight,
-        COALESCE(plr.defense_weight, p.defense_weight) as effective_defense_weight,
-        COALESCE(plr.defense_rating, p.defense_rating) as effective_defense_rating,
-        COALESCE(plr.forward_rating, p.forward_rating) as effective_forward_rating,
-        COALESCE(plr.goalie_rating, p.goalie_rating) as effective_goalie_rating
-       FROM players p
-       LEFT JOIN player_league_ratings plr ON plr.player_id = p.id AND plr.league_id = ?
-       WHERE p.id = ?`,
+      p.*,
+      COALESCE(plr.position, p.position) as effective_position,
+      COALESCE(plr.forward_positions, p.forward_positions) as effective_forward_positions,
+      COALESCE(plr.offense_weight, p.offense_weight) as effective_offense_weight,
+      COALESCE(plr.defense_weight, p.defense_weight) as effective_defense_weight,
+      COALESCE(plr.defense_rating, p.defense_rating) as effective_defense_rating,
+      COALESCE(plr.forward_rating, p.forward_rating) as effective_forward_rating,
+      COALESCE(plr.goalie_rating, p.goalie_rating) as effective_goalie_rating
+      FROM players p
+      LEFT JOIN player_league_ratings plr ON plr.player_id = p.id AND plr.league_id = ?
+      WHERE p.id = ?`,
       [req.leagueId, playerId]
     ) as (Player & {
       effective_position: string;
+      effective_forward_positions: string | null;
       effective_offense_weight: number;
       effective_defense_weight: number;
       effective_defense_rating: number;
@@ -361,15 +388,16 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
     }
 
     // Transform the result to use effective ratings
-    const transformedPlayer = {
-      ...player,
-      position: player.effective_position,
-      offense_weight: player.effective_offense_weight,
-      defense_weight: player.effective_defense_weight,
-      defense_rating: player.effective_defense_rating,
-      forward_rating: player.effective_forward_rating,
-      goalie_rating: player.effective_goalie_rating,
-    };
+  const transformedPlayer = {
+    ...player,
+    position: player.effective_position,
+    forward_positions: player.effective_forward_positions,
+    offense_weight: player.effective_offense_weight,
+    defense_weight: player.effective_defense_weight,
+    defense_rating: player.effective_defense_rating,
+    forward_rating: player.effective_forward_rating,
+    goalie_rating: player.effective_goalie_rating,
+  };
 
     res.json(transformedPlayer);
   } catch (error) {

@@ -91,13 +91,13 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
     // Get teams, from series if game belongs to one
     const teamTarget = game.series_id ? 't.series_id = ?' : 't.game_id = ?';
     const teamTargetId = game.series_id || game.id;
-    const teams = await allAsync(`
-      SELECT t.team_number, t.player_id, p.name as player_name, p.position, t.team_name
-      FROM teams t
-      JOIN players p ON t.player_id = p.id
-      JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE ${teamTarget} AND pl.league_id = ?
-      ORDER BY t.team_number, p.name
+  const teams = await allAsync(`
+    SELECT t.team_number, t.player_id, p.name as player_name, p.position, p.forward_positions, t.team_name
+    FROM teams t
+    JOIN players p ON t.player_id = p.id
+    JOIN player_leagues pl ON pl.player_id = p.id
+    WHERE ${teamTarget} AND pl.league_id = ?
+    ORDER BY t.team_number, p.name
     `, [teamTargetId, req.leagueId]) as TeamWithPlayer[];
 
     const notificationLogs = await allAsync(

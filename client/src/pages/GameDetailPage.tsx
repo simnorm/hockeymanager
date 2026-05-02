@@ -263,9 +263,45 @@ export function GameDetailPage() {
   const canUpdateAttendance = (attendanceUserId?: number) =>
     Boolean(user && (user.isAdmin || attendanceUserId === user.id));
 
+  const renderPositionGroup = (label: string, players: Team[]) => {
+    if (players.length === 0) return null;
+    return (
+      <>
+        <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
+          {label}
+        </Typography>
+        <List dense>
+          {players.map((player) => (
+            <ListItem key={player.player_id}>
+              <ListItemText primary={player.player_name} />
+            </ListItem>
+          ))}
+        </List>
+      </>
+    );
+  };
+
   const groupPlayersByPosition = (players: Team[]) => {
+    const parseFwd = (fp?: string): ('center' | 'winger')[] => {
+      if (!fp) return ['center', 'winger'];
+      try {
+        const parsed = JSON.parse(fp);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((v: string) => v === 'center' || v === 'winger');
+        }
+      } catch {}
+      return ['center', 'winger'];
+    };
+
+    const forwards = players.filter(p => p.position === 'forward');
+    const centers = forwards.filter(p => parseFwd(p.forward_positions).includes('center') && !parseFwd(p.forward_positions).includes('winger'));
+    const wingers = forwards.filter(p => parseFwd(p.forward_positions).includes('winger') && !parseFwd(p.forward_positions).includes('center'));
+    const both = forwards.filter(p => parseFwd(p.forward_positions).includes('center') && parseFwd(p.forward_positions).includes('winger'));
+
     return {
-      forwards: players.filter(p => p.position === 'forward'),
+      centers,
+      wingers,
+      both,
       defense: players.filter(p => p.position === 'defense'),
       goalies: players.filter(p => p.position === 'goalie'),
     };
@@ -483,122 +519,49 @@ export function GameDetailPage() {
                         {team1[0]?.team_name || t('gameDetail.team1')}
                       </Typography>
                     )}
-                    {(() => {
-                      const grouped = groupPlayersByPosition(team1);
-                      return (
-                        <>
-                          {grouped.forwards.length > 0 && (
-                            <>
-                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                                F
-                              </Typography>
-                              <List dense>
-                                {grouped.forwards.map((player) => (
-                                  <ListItem key={player.player_id}>
-                                    <ListItemText primary={player.player_name} />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </>
-                          )}
-                          {grouped.defense.length > 0 && (
-                            <>
-                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                                D
-                              </Typography>
-                              <List dense>
-                                {grouped.defense.map((player) => (
-                                  <ListItem key={player.player_id}>
-                                    <ListItemText primary={player.player_name} />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </>
-                          )}
-                          {grouped.goalies.length > 0 && (
-                            <>
-                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                                Goalie
-                              </Typography>
-                              <List dense>
-                                {grouped.goalies.map((player) => (
-                                  <ListItem key={player.player_id}>
-                                    <ListItemText primary={player.player_name} />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </Grid>
-                  <Grid item xs={6}>
-                    {user?.isAdmin ? (
-                      <TextField
-                        fullWidth
-                        variant="outlined"
-                        size="small"
-                        value={editingTeam2Name || team2[0]?.team_name || t('gameDetail.team2')}
-                        onChange={(e) => handleTeamNameChange(2, e.target.value)}
-                        onBlur={() => handleTeamNameSave(2)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleTeamNameSave(2)}
-                        sx={{ mb: 1 }}
-                      />
-                    ) : (
-                      <Typography variant="h6" color="secondary">
-                        {team2[0]?.team_name || t('gameDetail.team2')}
-                      </Typography>
-                    )}
-                    {(() => {
-                      const grouped = groupPlayersByPosition(team2);
-                      return (
-                        <>
-                          {grouped.forwards.length > 0 && (
-                            <>
-                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                                F
-                              </Typography>
-                              <List dense>
-                                {grouped.forwards.map((player) => (
-                                  <ListItem key={player.player_id}>
-                                    <ListItemText primary={player.player_name} />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </>
-                          )}
-                          {grouped.defense.length > 0 && (
-                            <>
-                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                                D
-                              </Typography>
-                              <List dense>
-                                {grouped.defense.map((player) => (
-                                  <ListItem key={player.player_id}>
-                                    <ListItemText primary={player.player_name} />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </>
-                          )}
-                          {grouped.goalies.length > 0 && (
-                            <>
-                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
-                                Goalie
-                              </Typography>
-                              <List dense>
-                                {grouped.goalies.map((player) => (
-                                  <ListItem key={player.player_id}>
-                                    <ListItemText primary={player.player_name} />
-                                  </ListItem>
-                                ))}
-                              </List>
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
+        {(() => {
+        const grouped = groupPlayersByPosition(team1);
+        return (
+        <>
+        {renderPositionGroup('C', grouped.centers)}
+        {renderPositionGroup('W', grouped.wingers)}
+        {renderPositionGroup('C/W', grouped.both)}
+        {grouped.centers.length === 0 && grouped.wingers.length === 0 && grouped.both.length === 0 && grouped.defense.length === 0 && grouped.goalies.length === 0 && null}
+        {renderPositionGroup('D', grouped.defense)}
+        {renderPositionGroup('G', grouped.goalies)}
+        </>
+        );
+        })()}
+        </Grid>
+        <Grid item xs={6}>
+        {user?.isAdmin ? (
+        <TextField
+        fullWidth
+        variant="outlined"
+        size="small"
+        value={editingTeam2Name || team2[0]?.team_name || t('gameDetail.team2')}
+        onChange={(e) => handleTeamNameChange(2, e.target.value)}
+        onBlur={() => handleTeamNameSave(2)}
+        onKeyPress={(e) => e.key === 'Enter' && handleTeamNameSave(2)}
+        sx={{ mb: 1 }}
+        />
+        ) : (
+        <Typography variant="h6" color="secondary">
+        {team2[0]?.team_name || t('gameDetail.team2')}
+        </Typography>
+        )}
+        {(() => {
+        const grouped = groupPlayersByPosition(team2);
+        return (
+        <>
+        {renderPositionGroup('C', grouped.centers)}
+        {renderPositionGroup('W', grouped.wingers)}
+        {renderPositionGroup('C/W', grouped.both)}
+        {renderPositionGroup('D', grouped.defense)}
+        {renderPositionGroup('G', grouped.goalies)}
+        </>
+        );
+        })()}
                   </Grid>
                 </Grid>
               )}
