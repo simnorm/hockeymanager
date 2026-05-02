@@ -68,6 +68,7 @@ export interface Team {
 export interface GameWithDetails extends Game {
   attendance?: AttendanceWithPlayer[];
   teams?: TeamWithPlayer[];
+  notificationLogs?: NotificationLog[];
 }
 
 export interface AttendanceWithPlayer extends Attendance {
@@ -80,4 +81,22 @@ export interface TeamWithPlayer {
   team_number: number;
   player_id: number;
   player_name: string;
+}
+
+export interface NotificationLog {
+  id: number;
+  game_id?: number;
+  trigger_type: 'absence' | 'test';
+  absent_player_id?: number;
+  absent_player_name?: string;
+  recipient_player_id?: number;
+  recipient_name?: string;
+  email?: string;
+  phone?: string;
+  status: 'sent' | 'skipped' | 'failed';
+  channels_sent?: string;
+  provider?: string;
+  reason?: string;
+  initiated_by_user_id?: number;
+  created_at: string;
 }

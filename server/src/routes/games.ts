@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { allAsync, getAsync, runAsync } from '../database.js';
-import { Game, GameWithDetails, AttendanceWithPlayer, TeamWithPlayer } from '../types.js';
+import { Game, GameWithDetails, AttendanceWithPlayer, NotificationLog, TeamWithPlayer } from '../types.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -68,10 +68,22 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       ORDER BY t.team_number, p.name
     `, [game.id, req.leagueId]) as TeamWithPlayer[];
 
+    const notificationLogs = await allAsync(
+      `SELECT
+         nl.*, 
+         absent_player.name as absent_player_name
+       FROM notification_logs nl
+       LEFT JOIN players absent_player ON absent_player.id = nl.absent_player_id
+       WHERE nl.game_id = ?
+       ORDER BY nl.created_at DESC, nl.id DESC`,
+      [game.id]
+    ) as NotificationLog[];
+
     const gameWithDetails: GameWithDetails = {
       ...game,
       attendance,
       teams,
+      notificationLogs,
     };
 
     res.json(gameWithDetails);

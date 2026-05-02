@@ -2,6 +2,11 @@ import express, { Request, Response } from 'express';
 import { allAsync, getAsync, runAsync } from '../database.js';
 import { Attendance } from '../types.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import {
+  logNotificationResult,
+  notifyReplacementCandidate,
+  ReplacementNotificationResult,
+} from '../services/notifications.js';
 
 const router = express.Router();
 
@@ -9,6 +14,8 @@ interface ReplacementCandidate {
   player_id: number;
   name: string;
   position: 'forward' | 'defense' | 'goalie';
+  email?: string | null;
+  phone?: string | null;
   is_regular: number;
   forward_rating: number;
   defense_rating: number;
@@ -43,10 +50,13 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
       return res.status(400).json({ error: 'Invalid status. Must be "present" or "absent"' });
     }
 
-    const game = await getAsync('SELECT id FROM games WHERE id = ? AND league_id = ?', [
-      gameId,
-      req.leagueId,
-    ]) as { id: number } | undefined;
+    const game = await getAsync(
+      `SELECT g.id, g.date, g.time, g.location, l.name as league_name
+       FROM games g
+       JOIN leagues l ON l.id = g.league_id
+       WHERE g.id = ? AND g.league_id = ?`,
+      [gameId, req.leagueId]
+    ) as { id: number; date: string; time?: string | null; location?: string | null; league_name?: string | null } | undefined;
 
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
@@ -74,6 +84,8 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
       [gameId, playerId]
     ) as Attendance;
 
+    const previousStatus = existing?.status ?? 'pending';
+
     if (!existing) {
       // Create attendance record if it doesn't exist
       await runAsync(
@@ -100,8 +112,9 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
       score: number;
     }> = [];
     let replacementMessage: string | undefined;
+    let replacementNotification: ReplacementNotificationResult | undefined;
 
-    if (status === 'absent') {
+    if (status === 'absent' && previousStatus !== 'absent') {
       const teamAssignment = await getAsync(
         'SELECT team_number FROM teams WHERE game_id = ? AND player_id = ?',
         [gameId, playerId]
@@ -110,8 +123,8 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
       if (teamAssignment) {
         const absentPlayer = await getAsync(
           `SELECT
-            id as player_id,
-            name,
+            p.id as player_id,
+            p.name,
             position,
             is_regular,
             forward_rating,
@@ -121,7 +134,7 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
             defense_weight
           FROM players p
           JOIN player_leagues pl ON pl.player_id = p.id
-          WHERE id = ? AND pl.league_id = ?`,
+          WHERE p.id = ? AND pl.league_id = ?`,
           [playerId, req.leagueId]
         ) as ReplacementCandidate | undefined;
 
@@ -133,6 +146,8 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
               p.id as player_id,
               p.name,
               p.position,
+              p.email,
+              p.phone,
               p.is_regular,
               p.forward_rating,
               p.defense_rating,
@@ -168,6 +183,9 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
 
           const similarlyRatedOrBetter = scoredCandidates.filter((candidate) => candidate.score >= absentScore);
           const selected = similarlyRatedOrBetter.slice(0, 3);
+          const notificationPool = similarlyRatedOrBetter.length > 0 ? similarlyRatedOrBetter : scoredCandidates;
+          const notificationCandidate =
+            notificationPool.find((candidate) => candidate.is_regular === 0) ?? notificationPool[0];
 
           replacementSuggestions = selected.map((candidate) => ({
             playerId: candidate.player_id,
@@ -175,6 +193,49 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
             isRegular: candidate.is_regular === 1,
             score: candidate.score,
           }));
+
+          if (notificationCandidate) {
+            replacementNotification = await notifyReplacementCandidate({
+              recipientName: notificationCandidate.name,
+              recipientPlayerId: notificationCandidate.player_id,
+              email: notificationCandidate.email,
+              phone: notificationCandidate.phone,
+              absentPlayerName: absentPlayer.name,
+              gameDate: game.date,
+              gameTime: game.time,
+              gameLocation: game.location,
+              leagueName: game.league_name,
+              teamNumber: teamAssignment.team_number,
+            });
+
+            await logNotificationResult({
+              gameId: Number(gameId),
+              triggerType: 'absence',
+              absentPlayerId: Number(playerId),
+              recipientPlayerId: notificationCandidate.player_id,
+              recipientName: notificationCandidate.name,
+              email: notificationCandidate.email,
+              phone: notificationCandidate.phone,
+              initiatedByUserId: req.userId,
+              result: replacementNotification,
+            });
+          } else {
+            replacementNotification = {
+              status: 'skipped',
+              recipientName: undefined,
+              recipientPlayerId: undefined,
+              channelsSent: [],
+              reason: 'no-candidate',
+            };
+
+            await logNotificationResult({
+              gameId: Number(gameId),
+              triggerType: 'absence',
+              absentPlayerId: Number(playerId),
+              initiatedByUserId: req.userId,
+              result: replacementNotification,
+            });
+          }
 
           if (replacementSuggestions.length > 0) {
             replacementMessage = `Team ${teamAssignment.team_number}: contact a replacement for ${absentPlayer.name}.`;
@@ -191,6 +252,7 @@ router.put('/:gameId/:playerId', authenticateToken, async (req: AuthRequest, res
       attendance,
       replacementSuggestions,
       replacementMessage,
+      replacementNotification,
     });
   } catch (error) {
     console.error('Update attendance error:', error);

@@ -57,10 +57,42 @@ export interface ReplacementSuggestion {
   score: number;
 }
 
+export interface ReplacementNotification {
+  status: 'sent' | 'skipped' | 'failed';
+  recipientName?: string;
+  recipientPlayerId?: number;
+  channelsSent: Array<'email' | 'sms'>;
+  reason?: 'no-candidate' | 'no-contact-method' | 'no-provider-configured' | 'delivery-failed';
+  provider?: 'twilio' | 'voipms';
+}
+
+export interface NotificationLog {
+  id: number;
+  game_id?: number;
+  trigger_type: 'absence' | 'test';
+  absent_player_id?: number;
+  absent_player_name?: string;
+  recipient_player_id?: number;
+  recipient_name?: string;
+  email?: string;
+  phone?: string;
+  status: 'sent' | 'skipped' | 'failed';
+  channels_sent?: string;
+  provider?: 'twilio' | 'voipms';
+  reason?: 'no-candidate' | 'no-contact-method' | 'no-provider-configured' | 'delivery-failed';
+  initiated_by_user_id?: number;
+  created_at: string;
+}
+
+export interface TestNotificationResponse {
+  result: ReplacementNotification;
+}
+
 export interface AttendanceUpdateResponse {
   attendance: Attendance;
   replacementSuggestions: ReplacementSuggestion[];
   replacementMessage?: string;
+  replacementNotification?: ReplacementNotification;
 }
 
 export interface Team {
@@ -72,4 +104,5 @@ export interface Team {
 export interface GameWithDetails extends Game {
   attendance?: Attendance[];
   teams?: Team[];
+  notificationLogs?: NotificationLog[];
 }

@@ -23,8 +23,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { gamesApi, attendanceApi, teamsApi } from '../services/api';
-import { GameWithDetails } from '../types';
+import { gamesApi, attendanceApi, notificationsApi, teamsApi } from '../services/api';
+import { GameWithDetails, NotificationLog, ReplacementNotification } from '../types';
 import { useI18n } from '../contexts/I18nContext';
 import { Navigation } from '../components/Navigation';
 
@@ -32,12 +32,79 @@ export function GameDetailPage() {
   const [game, setGame] = useState<GameWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [openScoreDialog, setOpenScoreDialog] = useState(false);
+  const [openTestDialog, setOpenTestDialog] = useState(false);
   const [scores, setScores] = useState({ team1: 0, team2: 0 });
+  const [testRecipientName, setTestRecipientName] = useState('');
+  const [testEmail, setTestEmail] = useState('');
+  const [testPhone, setTestPhone] = useState('');
   const [actionAlert, setActionAlert] = useState<{ severity: 'info' | 'warning' | 'error'; message: string } | null>(null);
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
+
+  const formatNotificationMessage = (notification: ReplacementNotification) => {
+    const channels = notification.channelsSent
+      .map((channel: 'email' | 'sms') =>
+        channel === 'email' ? t('gameDetail.channelEmail') : t('gameDetail.channelSms')
+      )
+      .join(', ');
+
+    if (notification.status === 'sent' && notification.recipientName) {
+      return `${t('gameDetail.notificationSent')} ${notification.recipientName}${channels ? ` (${channels})` : ''}`;
+    }
+
+    if (notification.reason === 'no-contact-method' && notification.recipientName) {
+      return `${t('gameDetail.notificationNoContact')} ${notification.recipientName}`;
+    }
+
+    if (notification.reason === 'no-provider-configured' && notification.recipientName) {
+      return `${t('gameDetail.notificationNotConfigured')} ${notification.recipientName}`;
+    }
+
+    if (notification.reason === 'no-candidate') {
+      return t('gameDetail.notificationNoCandidate');
+    }
+
+    if (notification.recipientName) {
+      return `${t('gameDetail.notificationFailed')} ${notification.recipientName}`;
+    }
+
+    return undefined;
+  };
+
+  const formatChannels = (channels: string[] | undefined) => {
+    if (!channels || channels.length === 0) {
+      return '-';
+    }
+
+    return channels
+      .map((channel) => (channel === 'email' ? t('gameDetail.channelEmail') : t('gameDetail.channelSms')))
+      .join(', ');
+  };
+
+  const formatLogReason = (reason?: NotificationLog['reason']) => {
+    if (reason === 'no-contact-method') {
+      return t('gameDetail.notificationNoContact');
+    }
+
+    if (reason === 'no-provider-configured') {
+      return t('gameDetail.notificationNotConfigured');
+    }
+
+    if (reason === 'no-candidate') {
+      return t('gameDetail.notificationNoCandidate');
+    }
+
+    if (reason === 'delivery-failed') {
+      return t('gameDetail.notificationFailed');
+    }
+
+    return '-';
+  };
+
+  const formatLogTrigger = (triggerType: NotificationLog['trigger_type']) =>
+    triggerType === 'test' ? t('gameDetail.notificationTriggerTest') : t('gameDetail.notificationTriggerAbsence');
 
   useEffect(() => {
     loadGame();
@@ -63,17 +130,35 @@ export function GameDetailPage() {
       const data = response.data;
 
       if (status === 'absent') {
+        const messageParts: string[] = [];
+        const notificationMessage = data.replacementNotification
+          ? formatNotificationMessage(data.replacementNotification)
+          : undefined;
+
         if (data.replacementSuggestions.length > 0) {
           const names = data.replacementSuggestions.map((candidate) => candidate.name).join(', ');
-          setActionAlert({
-            severity: 'info',
-            message: `${data.replacementMessage || 'Suggested replacements'} ${names}`,
-          });
+          messageParts.push(`${t('gameDetail.suggestedReplacements')} ${names}`);
         } else if (data.replacementMessage) {
+          messageParts.push(data.replacementMessage);
+        }
+
+        if (notificationMessage) {
+          messageParts.push(notificationMessage);
+        }
+
+        if (messageParts.length > 0) {
+          const severity = data.replacementNotification?.status === 'failed' || data.replacementNotification?.status === 'skipped'
+            ? 'warning'
+            : data.replacementSuggestions.length > 0
+              ? 'info'
+              : 'warning';
+
           setActionAlert({
-            severity: 'warning',
-            message: data.replacementMessage,
+            severity,
+            message: messageParts.join(' '),
           });
+        } else {
+          setActionAlert(null);
         }
       } else {
         setActionAlert(null);
@@ -100,6 +185,33 @@ export function GameDetailPage() {
         message: error?.response?.data?.error || t('gameDetail.failedAutoBalance'),
       });
       console.error('Failed to auto-balance teams:', error);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    try {
+      const response = await notificationsApi.sendTest({
+        recipientName: testRecipientName,
+        email: testEmail || undefined,
+        phone: testPhone || undefined,
+        gameId: Number(id),
+      });
+
+      const notificationMessage = formatNotificationMessage(response.data.result);
+      setActionAlert({
+        severity: response.data.result.status === 'sent' ? 'info' : 'warning',
+        message: notificationMessage || t('gameDetail.notificationTestSuccess'),
+      });
+      setOpenTestDialog(false);
+      setTestRecipientName('');
+      setTestEmail('');
+      setTestPhone('');
+      await loadGame();
+    } catch (error: any) {
+      setActionAlert({
+        severity: 'error',
+        message: error?.response?.data?.error || t('gameDetail.failedTestNotification'),
+      });
     }
   };
 
@@ -177,10 +289,15 @@ export function GameDetailPage() {
             </Typography>
           )}
 
-          {user?.isAdmin && game.status !== 'completed' && (
-            <Box mt={2}>
-              <Button variant="contained" onClick={() => setOpenScoreDialog(true)}>
-                {t('gameDetail.recordScore')}
+          {user?.isAdmin && (
+            <Box mt={2} display="flex" gap={1}>
+              {game.status !== 'completed' && (
+                <Button variant="contained" onClick={() => setOpenScoreDialog(true)}>
+                  {t('gameDetail.recordScore')}
+                </Button>
+              )}
+              <Button variant="outlined" onClick={() => setOpenTestDialog(true)}>
+                {t('gameDetail.notificationTestButton')}
               </Button>
             </Box>
           )}
@@ -336,6 +453,41 @@ export function GameDetailPage() {
           </Grid>
         </Grid>
 
+        {user?.isAdmin && (
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              {t('gameDetail.notificationLogs')}
+            </Typography>
+            <List dense>
+              {(game.notificationLogs || []).length === 0 && (
+                <ListItem>
+                  <ListItemText primary={t('gameDetail.noNotificationLogs')} />
+                </ListItem>
+              )}
+              {(game.notificationLogs || []).map((log) => {
+                const channels = log.channels_sent ? log.channels_sent.split(',').filter(Boolean) : [];
+                const secondary = [
+                  `${t('gameDetail.notificationStatus')}: ${log.status}`,
+                  `${t('gameDetail.notificationRecipient')}: ${log.recipient_name || '-'}`,
+                  `${t('gameDetail.notificationReason')}: ${formatLogReason(log.reason)}`,
+                  `${t('gameDetail.notificationProvider')}: ${log.provider || '-'}`,
+                  `${t('gameDetail.notificationChannels')}: ${formatChannels(channels)}`,
+                  `${t('gameDetail.notificationSentAt')}: ${new Date(log.created_at).toLocaleString()}`,
+                ].join(' | ');
+
+                return (
+                  <ListItem key={log.id}>
+                    <ListItemText
+                      primary={`${formatLogTrigger(log.trigger_type)}${log.absent_player_name ? `: ${log.absent_player_name}` : ''}`}
+                      secondary={secondary}
+                    />
+                  </ListItem>
+                );
+              })}
+            </List>
+          </Paper>
+        )}
+
         <Dialog open={openScoreDialog} onClose={() => setOpenScoreDialog(false)}>
           <DialogTitle>{t('gameDetail.scoreDialog')}</DialogTitle>
           <DialogContent>
@@ -360,6 +512,43 @@ export function GameDetailPage() {
             <Button onClick={() => setOpenScoreDialog(false)}>{t('games.cancel')}</Button>
             <Button onClick={handleSaveScore} variant="contained">
               {t('gameDetail.saveScore')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={openTestDialog} onClose={() => setOpenTestDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>{t('gameDetail.notificationTestTitle')}</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('gameDetail.notificationTestName')}
+              value={testRecipientName}
+              onChange={(e) => setTestRecipientName(e.target.value)}
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('gameDetail.notificationTestEmail')}
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              label={t('gameDetail.notificationTestPhone')}
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenTestDialog(false)}>{t('games.cancel')}</Button>
+            <Button
+              onClick={handleSendTestNotification}
+              variant="contained"
+              disabled={!testRecipientName || (!testEmail && !testPhone)}
+            >
+              {t('gameDetail.notificationTestSend')}
             </Button>
           </DialogActions>
         </Dialog>

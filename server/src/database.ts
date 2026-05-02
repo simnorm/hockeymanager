@@ -157,6 +157,30 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Notification delivery log
+    await runAsync(`
+      CREATE TABLE IF NOT EXISTS notification_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER,
+        trigger_type TEXT NOT NULL,
+        absent_player_id INTEGER,
+        recipient_player_id INTEGER,
+        recipient_name TEXT,
+        email TEXT,
+        phone TEXT,
+        status TEXT NOT NULL,
+        channels_sent TEXT,
+        provider TEXT,
+        reason TEXT,
+        initiated_by_user_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (absent_player_id) REFERENCES players(id) ON DELETE SET NULL,
+        FOREIGN KEY (recipient_player_id) REFERENCES players(id) ON DELETE SET NULL,
+        FOREIGN KEY (initiated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
     // Migrate older databases that were created before league support existed
     if (!(await columnExists('users', 'league_id'))) {
       await runAsync('ALTER TABLE users ADD COLUMN league_id INTEGER REFERENCES leagues(id)');
@@ -215,6 +239,9 @@ export async function initializeDatabase() {
     await runAsync('CREATE INDEX IF NOT EXISTS idx_player_invites_player_id ON player_invites(player_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_player_invites_league_id ON player_invites(league_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_player_invites_invite_code ON player_invites(invite_code)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_notification_logs_game_id ON notification_logs(game_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_notification_logs_recipient_player_id ON notification_logs(recipient_player_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_notification_logs_created_at ON notification_logs(created_at)');
 
     // Backfill player-league memberships from legacy players.league_id.
     await runAsync(`

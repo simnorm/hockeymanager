@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AttendanceUpdateResponse } from '../types';
+import { AttendanceUpdateResponse, TestNotificationResponse } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -68,6 +68,11 @@ export const leaguesApi = {
   getAll: () => api.get('/leagues'),
   create: (name: string) => api.post('/leagues', { name }),
   rename: (leagueId: number, name: string) => api.put(`/leagues/${leagueId}`, { name }),
+};
+
+export const notificationsApi = {
+  sendTest: (data: { recipientName: string; email?: string; phone?: string; gameId?: number }) =>
+    api.post<TestNotificationResponse>('/notifications/test', data),
 };
 
 export default api;

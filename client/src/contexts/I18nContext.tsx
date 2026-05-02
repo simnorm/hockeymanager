@@ -97,6 +97,32 @@ type TranslationKey =
   | 'gameDetail.gameNotFound'
   | 'gameDetail.failedAttendance'
   | 'gameDetail.failedAutoBalance'
+  | 'gameDetail.suggestedReplacements'
+  | 'gameDetail.notificationSent'
+  | 'gameDetail.notificationFailed'
+  | 'gameDetail.notificationNoContact'
+  | 'gameDetail.notificationNotConfigured'
+  | 'gameDetail.notificationNoCandidate'
+  | 'gameDetail.channelEmail'
+  | 'gameDetail.channelSms'
+  | 'gameDetail.notificationLogs'
+  | 'gameDetail.noNotificationLogs'
+  | 'gameDetail.notificationTriggerAbsence'
+  | 'gameDetail.notificationTriggerTest'
+  | 'gameDetail.notificationStatus'
+  | 'gameDetail.notificationRecipient'
+  | 'gameDetail.notificationReason'
+  | 'gameDetail.notificationSentAt'
+  | 'gameDetail.notificationProvider'
+  | 'gameDetail.notificationChannels'
+  | 'gameDetail.notificationTestButton'
+  | 'gameDetail.notificationTestTitle'
+  | 'gameDetail.notificationTestName'
+  | 'gameDetail.notificationTestEmail'
+  | 'gameDetail.notificationTestPhone'
+  | 'gameDetail.notificationTestSend'
+  | 'gameDetail.notificationTestSuccess'
+  | 'gameDetail.failedTestNotification'
   | 'gameDetail.attendance.present'
   | 'gameDetail.attendance.absent'
   | 'gameDetail.attendance.pending'
@@ -207,6 +233,32 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.gameNotFound': 'Game not found',
     'gameDetail.failedAttendance': 'Failed to update attendance',
     'gameDetail.failedAutoBalance': 'Failed to auto-balance teams',
+    'gameDetail.suggestedReplacements': 'Suggested replacements:',
+    'gameDetail.notificationSent': 'Notification sent to',
+    'gameDetail.notificationFailed': 'Failed to notify',
+    'gameDetail.notificationNoContact': 'No email or phone is available for',
+    'gameDetail.notificationNotConfigured': 'Email/SMS delivery is not configured for',
+    'gameDetail.notificationNoCandidate': 'No replacement candidate was available',
+    'gameDetail.channelEmail': 'email',
+    'gameDetail.channelSms': 'text message',
+    'gameDetail.notificationLogs': 'Notification Log',
+    'gameDetail.noNotificationLogs': 'No notification events yet',
+    'gameDetail.notificationTriggerAbsence': 'Absence replacement',
+    'gameDetail.notificationTriggerTest': 'Test notification',
+    'gameDetail.notificationStatus': 'Status',
+    'gameDetail.notificationRecipient': 'Recipient',
+    'gameDetail.notificationReason': 'Reason',
+    'gameDetail.notificationSentAt': 'Sent at',
+    'gameDetail.notificationProvider': 'Provider',
+    'gameDetail.notificationChannels': 'Channels',
+    'gameDetail.notificationTestButton': 'Send Test Notification',
+    'gameDetail.notificationTestTitle': 'Send Test Notification',
+    'gameDetail.notificationTestName': 'Recipient Name',
+    'gameDetail.notificationTestEmail': 'Test Email',
+    'gameDetail.notificationTestPhone': 'Test Phone',
+    'gameDetail.notificationTestSend': 'Send Test',
+    'gameDetail.notificationTestSuccess': 'Test notification sent',
+    'gameDetail.failedTestNotification': 'Failed to send test notification',
     'gameDetail.attendance.present': 'present',
     'gameDetail.attendance.absent': 'absent',
     'gameDetail.attendance.pending': 'pending',
@@ -316,6 +368,32 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.gameNotFound': 'Match introuvable',
     'gameDetail.failedAttendance': 'Echec de mise a jour de la presence',
     'gameDetail.failedAutoBalance': 'Echec de creation automatique des equipes',
+    'gameDetail.suggestedReplacements': 'Remplacements suggérés :',
+    'gameDetail.notificationSent': 'Notification envoyee a',
+    'gameDetail.notificationFailed': 'Echec de notification pour',
+    'gameDetail.notificationNoContact': 'Aucun courriel ou numero de telephone pour',
+    'gameDetail.notificationNotConfigured': 'L\'envoi courriel/SMS n\'est pas configure pour',
+    'gameDetail.notificationNoCandidate': 'Aucun candidat de remplacement disponible',
+    'gameDetail.channelEmail': 'courriel',
+    'gameDetail.channelSms': 'message texte',
+    'gameDetail.notificationLogs': 'Journal des notifications',
+    'gameDetail.noNotificationLogs': 'Aucun evenement de notification pour le moment',
+    'gameDetail.notificationTriggerAbsence': 'Remplacement pour absence',
+    'gameDetail.notificationTriggerTest': 'Notification de test',
+    'gameDetail.notificationStatus': 'Statut',
+    'gameDetail.notificationRecipient': 'Destinataire',
+    'gameDetail.notificationReason': 'Raison',
+    'gameDetail.notificationSentAt': 'Envoye le',
+    'gameDetail.notificationProvider': 'Fournisseur',
+    'gameDetail.notificationChannels': 'Canaux',
+    'gameDetail.notificationTestButton': 'Envoyer une notification de test',
+    'gameDetail.notificationTestTitle': 'Envoyer une notification de test',
+    'gameDetail.notificationTestName': 'Nom du destinataire',
+    'gameDetail.notificationTestEmail': 'Courriel de test',
+    'gameDetail.notificationTestPhone': 'Telephone de test',
+    'gameDetail.notificationTestSend': 'Envoyer le test',
+    'gameDetail.notificationTestSuccess': 'Notification de test envoyee',
+    'gameDetail.failedTestNotification': 'Echec de l\'envoi de la notification de test',
     'gameDetail.attendance.present': 'present',
     'gameDetail.attendance.absent': 'absent',
     'gameDetail.attendance.pending': 'en attente',
