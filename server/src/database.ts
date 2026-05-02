@@ -434,6 +434,10 @@ export async function initializeDatabase() {
       await runAsync('ALTER TABLE teams ADD COLUMN series_id INTEGER');
     }
 
+    if (!(await columnExists('teams', 'team_name'))) {
+      await runAsync("ALTER TABLE teams ADD COLUMN team_name TEXT");
+    }
+
     // Backfill existing rows into the default league
     await runAsync('UPDATE users SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
     await runAsync('UPDATE players SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);

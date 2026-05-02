@@ -74,6 +74,7 @@ export interface Team {
   game_id?: number;
   series_id?: number;
   team_number: number;
+  team_name?: string;
   player_id: number;
 }
 
@@ -94,6 +95,8 @@ export interface TeamWithPlayer {
   team_number: number;
   player_id: number;
   player_name: string;
+  position: 'forward' | 'defense' | 'goalie';
+  team_name?: string;
 }
 
 export interface NotificationLog {

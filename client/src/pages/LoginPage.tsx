@@ -31,11 +31,13 @@ export function LoginPage() {
     setError('');
 
     try {
+      console.log('LoginPage: submit', { isInviteMode, username });
       if (isInviteMode) {
         await completeInvite(inviteCode, username, password);
       } else {
         await login(username, password);
       }
+      console.log('LoginPage: login succeeded, navigating to /');
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || t('login.failed'));

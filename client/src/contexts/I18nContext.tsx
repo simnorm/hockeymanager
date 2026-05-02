@@ -103,6 +103,7 @@ type TranslationKey =
   | 'gameDetail.gameNotFound'
   | 'gameDetail.failedAttendance'
   | 'gameDetail.failedAutoBalance'
+  | 'gameDetail.teamNameUpdateError'
   | 'gameDetail.suggestedReplacements'
   | 'gameDetail.notificationSent'
   | 'gameDetail.notificationFailed'
@@ -247,6 +248,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.gameNotFound': 'Game not found',
     'gameDetail.failedAttendance': 'Failed to update attendance',
     'gameDetail.failedAutoBalance': 'Failed to auto-balance teams',
+    'gameDetail.teamNameUpdateError': 'Failed to update team name',
     'gameDetail.suggestedReplacements': 'Suggested replacements:',
     'gameDetail.notificationSent': 'Notification sent to',
     'gameDetail.notificationFailed': 'Failed to notify',
@@ -390,6 +392,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.gameNotFound': 'Match introuvable',
     'gameDetail.failedAttendance': 'Echec de mise a jour de la presence',
     'gameDetail.failedAutoBalance': 'Echec de creation automatique des equipes',
+    'gameDetail.teamNameUpdateError': 'Echec de mise a jour du nom d\'equipe',
     'gameDetail.suggestedReplacements': 'Remplacements suggérés :',
     'gameDetail.notificationSent': 'Notification envoyee a',
     'gameDetail.notificationFailed': 'Echec de notification pour',

@@ -24,7 +24,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { gamesApi, attendanceApi, notificationsApi, teamsApi } from '../services/api';
-import { GameWithDetails, NotificationLog, ReplacementNotification } from '../types';
+import { GameWithDetails, NotificationLog, ReplacementNotification, Team } from '../types';
 import { useI18n } from '../contexts/I18nContext';
 import { Navigation } from '../components/Navigation';
 
@@ -38,6 +38,8 @@ export function GameDetailPage() {
   const [testEmail, setTestEmail] = useState('');
   const [testPhone, setTestPhone] = useState('');
   const [actionAlert, setActionAlert] = useState<{ severity: 'info' | 'warning' | 'error'; message: string } | null>(null);
+  const [editingTeam1Name, setEditingTeam1Name] = useState('');
+  const [editingTeam2Name, setEditingTeam2Name] = useState('');
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { t } = useI18n();
@@ -261,6 +263,44 @@ export function GameDetailPage() {
   const canUpdateAttendance = (attendanceUserId?: number) =>
     Boolean(user && (user.isAdmin || attendanceUserId === user.id));
 
+  const groupPlayersByPosition = (players: Team[]) => {
+    return {
+      forwards: players.filter(p => p.position === 'forward'),
+      defense: players.filter(p => p.position === 'defense'),
+      goalies: players.filter(p => p.position === 'goalie'),
+    };
+  };
+
+  const handleTeamNameChange = (teamNumber: 1 | 2, name: string) => {
+    if (teamNumber === 1) {
+      setEditingTeam1Name(name);
+    } else {
+      setEditingTeam2Name(name);
+    }
+  };
+
+  const handleTeamNameSave = async (teamNumber: 1 | 2) => {
+    const name = teamNumber === 1 ? editingTeam1Name : editingTeam2Name;
+    if (!name.trim()) return;
+
+    try {
+      await teamsApi.updateTeamNames(game.id, {
+        [teamNumber === 1 ? 'team1Name' : 'team2Name']: name.trim(),
+      });
+      // Refresh the game data
+      const response = await gamesApi.getById(game.id);
+      setGame(response.data);
+      if (teamNumber === 1) {
+        setEditingTeam1Name('');
+      } else {
+        setEditingTeam2Name('');
+      }
+    } catch (error) {
+      console.error('Failed to update team name:', error);
+      setActionAlert({ severity: 'error', message: t('gameDetail.teamNameUpdateError') });
+    }
+  };
+
   return (
     <>
       <Navigation />
@@ -427,28 +467,138 @@ export function GameDetailPage() {
               ) : (
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
-                    <Typography variant="h6" color="primary">
-                      {t('gameDetail.team1')}
-                    </Typography>
-                    <List dense>
-                      {team1.map((player) => (
-                        <ListItem key={player.player_id}>
-                          <ListItemText primary={player.player_name} />
-                        </ListItem>
-                      ))}
-                    </List>
+                    {user?.isAdmin ? (
+                      <TextField
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        value={editingTeam1Name || team1[0]?.team_name || t('gameDetail.team1')}
+                        onChange={(e) => handleTeamNameChange(1, e.target.value)}
+                        onBlur={() => handleTeamNameSave(1)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleTeamNameSave(1)}
+                        sx={{ mb: 1 }}
+                      />
+                    ) : (
+                      <Typography variant="h6" color="primary">
+                        {team1[0]?.team_name || t('gameDetail.team1')}
+                      </Typography>
+                    )}
+                    {(() => {
+                      const grouped = groupPlayersByPosition(team1);
+                      return (
+                        <>
+                          {grouped.forwards.length > 0 && (
+                            <>
+                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                F
+                              </Typography>
+                              <List dense>
+                                {grouped.forwards.map((player) => (
+                                  <ListItem key={player.player_id}>
+                                    <ListItemText primary={player.player_name} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </>
+                          )}
+                          {grouped.defense.length > 0 && (
+                            <>
+                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                D
+                              </Typography>
+                              <List dense>
+                                {grouped.defense.map((player) => (
+                                  <ListItem key={player.player_id}>
+                                    <ListItemText primary={player.player_name} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </>
+                          )}
+                          {grouped.goalies.length > 0 && (
+                            <>
+                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                Goalie
+                              </Typography>
+                              <List dense>
+                                {grouped.goalies.map((player) => (
+                                  <ListItem key={player.player_id}>
+                                    <ListItemText primary={player.player_name} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="h6" color="secondary">
-                      {t('gameDetail.team2')}
-                    </Typography>
-                    <List dense>
-                      {team2.map((player) => (
-                        <ListItem key={player.player_id}>
-                          <ListItemText primary={player.player_name} />
-                        </ListItem>
-                      ))}
-                    </List>
+                    {user?.isAdmin ? (
+                      <TextField
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        value={editingTeam2Name || team2[0]?.team_name || t('gameDetail.team2')}
+                        onChange={(e) => handleTeamNameChange(2, e.target.value)}
+                        onBlur={() => handleTeamNameSave(2)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleTeamNameSave(2)}
+                        sx={{ mb: 1 }}
+                      />
+                    ) : (
+                      <Typography variant="h6" color="secondary">
+                        {team2[0]?.team_name || t('gameDetail.team2')}
+                      </Typography>
+                    )}
+                    {(() => {
+                      const grouped = groupPlayersByPosition(team2);
+                      return (
+                        <>
+                          {grouped.forwards.length > 0 && (
+                            <>
+                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                F
+                              </Typography>
+                              <List dense>
+                                {grouped.forwards.map((player) => (
+                                  <ListItem key={player.player_id}>
+                                    <ListItemText primary={player.player_name} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </>
+                          )}
+                          {grouped.defense.length > 0 && (
+                            <>
+                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                D
+                              </Typography>
+                              <List dense>
+                                {grouped.defense.map((player) => (
+                                  <ListItem key={player.player_id}>
+                                    <ListItemText primary={player.player_name} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </>
+                          )}
+                          {grouped.goalies.length > 0 && (
+                            <>
+                              <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                                Goalie
+                              </Typography>
+                              <List dense>
+                                {grouped.goalies.map((player) => (
+                                  <ListItem key={player.player_id}>
+                                    <ListItemText primary={player.player_name} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </Grid>
                 </Grid>
               )}

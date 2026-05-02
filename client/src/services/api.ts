@@ -62,6 +62,8 @@ export const teamsApi = {
   create: (gameId: number, teams: { team1: number[]; team2: number[] }) =>
     api.post(`/teams/${gameId}`, { teams }),
   autoBalance: (gameId: number) => api.post(`/teams/${gameId}/auto-balance`),
+  updateTeamNames: (gameId: number, teamNames: { team1Name?: string; team2Name?: string }) =>
+    api.put(`/teams/${gameId}/team-names`, teamNames),
 };
 
 // Leagues API
