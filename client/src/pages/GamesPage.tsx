@@ -43,7 +43,7 @@ export function GamesPage() {
   useEffect(() => {
     loadGames();
     loadSeries();
-  }, []);
+  }, [user?.leagueId]);
 
   const loadGames = async () => {
     try {

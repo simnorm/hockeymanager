@@ -77,7 +77,7 @@ export function PlayersPage() {
 
   useEffect(() => {
     loadPlayers();
-  }, []);
+  }, [user?.leagueId]);
 
   const loadPlayers = async () => {
     try {
