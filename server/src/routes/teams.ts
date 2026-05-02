@@ -9,6 +9,7 @@ interface RatedPlayer {
   id: number;
   name: string;
   position: 'forward' | 'defense' | 'goalie';
+  forward_positions?: string;
   offense_weight: number;
   defense_weight: number;
   defense_rating: number;
@@ -248,12 +249,12 @@ router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest
 
     // Get created teams
     const createdTeams = await allAsync(`
-      SELECT t.team_number, t.player_id, p.name as player_name, p.position, t.team_name
-      FROM teams t
-      JOIN players p ON t.player_id = p.id
-      JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE t.${targetColumn} = ? AND pl.league_id = ?
-      ORDER BY t.team_number, p.name
+    SELECT t.team_number, t.player_id, p.name as player_name, p.position, p.forward_positions, t.team_name
+    FROM teams t
+    JOIN players p ON t.player_id = p.id
+    JOIN player_leagues pl ON pl.player_id = p.id
+    WHERE t.${targetColumn} = ? AND pl.league_id = ?
+    ORDER BY t.team_number, p.name
     `, [targetValue, req.leagueId]) as TeamWithPlayer[];
 
     res.json(createdTeams);
@@ -286,10 +287,10 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
 
     // Build planning teams from active regulars, independent of attendance confirmations.
     const presentPlayers = await allAsync(`
-      SELECT p.id, p.name, p.position, p.offense_weight, p.defense_weight, p.defense_rating, p.forward_rating, p.goalie_rating
-      FROM players p
-      JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE pl.league_id = ? AND p.is_active = 1 AND p.is_regular = 1
+    SELECT p.id, p.name, p.position, p.forward_positions, p.offense_weight, p.defense_weight, p.defense_rating, p.forward_rating, p.goalie_rating
+    FROM players p
+    JOIN player_leagues pl ON pl.player_id = p.id
+    WHERE pl.league_id = ? AND p.is_active = 1 AND p.is_regular = 1
     `, [req.leagueId]) as RatedPlayer[];
 
     if (presentPlayers.length < 2) {
@@ -432,12 +433,12 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
 
     // Get created teams
     const createdTeams = await allAsync(`
-      SELECT t.team_number, t.player_id, p.name as player_name, p.position, t.team_name
-      FROM teams t
-      JOIN players p ON t.player_id = p.id
-      JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE t.${targetColumn} = ? AND pl.league_id = ?
-      ORDER BY t.team_number, p.name
+    SELECT t.team_number, t.player_id, p.name as player_name, p.position, p.forward_positions, t.team_name
+    FROM teams t
+    JOIN players p ON t.player_id = p.id
+    JOIN player_leagues pl ON pl.player_id = p.id
+    WHERE t.${targetColumn} = ? AND pl.league_id = ?
+    ORDER BY t.team_number, p.name
     `, [targetValue, req.leagueId]) as TeamWithPlayer[];
 
     res.json(createdTeams);

@@ -59,6 +59,10 @@ type TranslationKey =
   | 'players.forward'
   | 'players.defense'
   | 'players.goalie'
+  | 'players.center'
+  | 'players.winger'
+  | 'players.forwardPositions'
+  | 'players.centerWinger'
   | 'players.cancel'
   | 'players.save'
   | 'players.addPlayer'
@@ -202,6 +206,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.forward': 'Forward',
     'players.defense': 'Defense',
     'players.goalie': 'Goalie',
+    'players.center': 'Center',
+    'players.winger': 'Winger',
+    'players.forwardPositions': 'Forward Positions',
+    'players.centerWinger': 'C/W',
     'players.cancel': 'Cancel',
     'players.save': 'Save Ratings',
     'players.addPlayer': 'Add Player',
@@ -346,6 +354,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'players.forward': 'Attaquant',
     'players.defense': 'Defenseur',
     'players.goalie': 'Gardien',
+    'players.center': 'Centre',
+    'players.winger': 'Ailier',
+    'players.forwardPositions': 'Positions attaque',
+    'players.centerWinger': 'C/A',
     'players.cancel': 'Annuler',
     'players.save': 'Enregistrer les cotes',
     'players.addPlayer': 'Ajouter le joueur',

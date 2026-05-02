@@ -16,6 +16,7 @@ export interface Player {
   user_id?: number;
   name: string;
   position: 'forward' | 'defense' | 'goalie';
+  forward_positions?: string;
   email?: string;
   phone?: string;
   is_regular: number;
@@ -113,6 +114,7 @@ export interface Team {
   player_name: string;
   team_name?: string;
   position: 'forward' | 'defense' | 'goalie';
+  forward_positions?: string;
 }
 
 export interface GameWithDetails extends Game {

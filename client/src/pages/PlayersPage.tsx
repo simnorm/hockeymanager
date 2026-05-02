@@ -57,6 +57,7 @@ export function PlayersPage() {
   const [newPlayer, setNewPlayer] = useState({
     name: '',
     position: 'forward' as 'forward' | 'defense' | 'goalie',
+    forward_positions: ['center', 'winger'] as ('center' | 'winger')[],
     email: '',
     phone: '',
     is_regular: true,
@@ -68,6 +69,7 @@ export function PlayersPage() {
   });
   const [editRatings, setEditRatings] = useState({
     position: 'forward' as 'forward' | 'defense' | 'goalie',
+    forward_positions: ['center', 'winger'] as ('center' | 'winger')[],
     offense_weight: 5,
     defense_weight: 5,
     defense_rating: 5,
@@ -96,20 +98,24 @@ export function PlayersPage() {
 
   const handleCreatePlayer = async () => {
     try {
-      await playersApi.create(newPlayer);
-      setOpenDialog(false);
-      setNewPlayer({
-        name: '',
-        position: 'forward',
-        email: '',
-        phone: '',
-        is_regular: true,
-        offense_weight: 5,
-        defense_weight: 5,
-        defense_rating: 5,
-        forward_rating: 5,
-        goalie_rating: 5,
-      });
+    await playersApi.create({
+      ...newPlayer,
+      forward_positions: newPlayer.position === 'forward' ? newPlayer.forward_positions : undefined,
+    });
+    setOpenDialog(false);
+    setNewPlayer({
+      name: '',
+      position: 'forward',
+      forward_positions: ['center', 'winger'],
+      email: '',
+      phone: '',
+      is_regular: true,
+      offense_weight: 5,
+      defense_weight: 5,
+      defense_rating: 5,
+      forward_rating: 5,
+      goalie_rating: 5,
+    });
       loadPlayers();
     } catch (error) {
       console.error('Failed to create player:', error);
@@ -123,6 +129,7 @@ export function PlayersPage() {
       forward_rating: player.forward_rating,
       goalie_rating: player.goalie_rating,
       position: player.position,
+      forward_positions: parseForwardPositions(player.forward_positions),
       offense_weight: player.offense_weight,
       defense_weight: player.defense_weight,
     });
@@ -198,6 +205,37 @@ export function PlayersPage() {
 
   const clampRating = (value: number) => Math.max(0, Math.min(10, value));
 
+  const parseForwardPositions = (fp?: string): ('center' | 'winger')[] => {
+    if (!fp) return ['center', 'winger'];
+    try {
+      const parsed = JSON.parse(fp);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((v: string) => v === 'center' || v === 'winger');
+      }
+    } catch {}
+    return ['center', 'winger'];
+  };
+
+  const formatForwardPositions = (positions: ('center' | 'winger')[]): string => {
+    const hasCenter = positions.includes('center');
+    const hasWinger = positions.includes('winger');
+    if (hasCenter && hasWinger) return t('players.centerWinger');
+    if (hasCenter) return t('players.center');
+    if (hasWinger) return t('players.winger');
+    return t('players.centerWinger');
+  };
+
+  const toggleForwardPosition = (
+    current: ('center' | 'winger')[],
+    pos: 'center' | 'winger'
+  ): ('center' | 'winger')[] => {
+    if (current.includes(pos)) {
+      const next = current.filter(p => p !== pos);
+      return next.length > 0 ? next : current;
+    }
+    return [...current, pos];
+  };
+
   const handleSaveRatings = async () => {
     if (!editingPlayer) {
       return;
@@ -207,6 +245,7 @@ export function PlayersPage() {
       await playersApi.update(editingPlayer.id, {
         name: editingPlayer.name,
         position: editRatings.position,
+        forward_positions: editRatings.position === 'forward' ? editRatings.forward_positions : undefined,
         email: editingPlayer.email,
         phone: editingPlayer.phone,
         is_regular: Boolean(editingPlayer.is_regular),
@@ -293,11 +332,11 @@ export function PlayersPage() {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell sx={{ textTransform: 'capitalize' }}>
-                    {player.position === 'forward' && t('players.forward')}
-                    {player.position === 'defense' && t('players.defense')}
-                    {player.position === 'goalie' && t('players.goalie')}
-                  </TableCell>
+    <TableCell sx={{ textTransform: 'capitalize' }}>
+    {player.position === 'forward' && `${t('players.forward')} (${formatForwardPositions(parseForwardPositions(player.forward_positions))})`}
+    {player.position === 'defense' && t('players.defense')}
+    {player.position === 'goalie' && t('players.goalie')}
+    </TableCell>
                   <TableCell>{player.offense_weight}</TableCell>
                   <TableCell>{player.defense_weight}</TableCell>
                   <TableCell>{player.defense_rating}</TableCell>
@@ -335,24 +374,57 @@ export function PlayersPage() {
               margin="normal"
               required
             />
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="new-player-position-label">{t('players.position')}</InputLabel>
-              <Select
-                labelId="new-player-position-label"
-                label={t('players.position')}
-                value={newPlayer.position}
-                onChange={(e) =>
-                  setNewPlayer({
-                    ...newPlayer,
-                    position: e.target.value as 'forward' | 'defense' | 'goalie',
-                  })
-                }
-              >
-                <MenuItem value="forward">{t('players.forward')}</MenuItem>
-                <MenuItem value="defense">{t('players.defense')}</MenuItem>
-                <MenuItem value="goalie">{t('players.goalie')}</MenuItem>
-              </Select>
-            </FormControl>
+        <FormControl fullWidth margin="normal">
+        <InputLabel id="new-player-position-label">{t('players.position')}</InputLabel>
+        <Select
+        labelId="new-player-position-label"
+        label={t('players.position')}
+        value={newPlayer.position}
+        onChange={(e) =>
+        setNewPlayer({
+        ...newPlayer,
+        position: e.target.value as 'forward' | 'defense' | 'goalie',
+        forward_positions: e.target.value !== 'forward' ? [] : (newPlayer.forward_positions.length > 0 ? newPlayer.forward_positions : ['center', 'winger']),
+        })
+        }
+        >
+        <MenuItem value="forward">{t('players.forward')}</MenuItem>
+        <MenuItem value="defense">{t('players.defense')}</MenuItem>
+        <MenuItem value="goalie">{t('players.goalie')}</MenuItem>
+        </Select>
+        </FormControl>
+        {newPlayer.position === 'forward' && (
+        <Box display="flex" gap={2} mt={1} mb={1}>
+        <FormControlLabel
+        control={
+        <Checkbox
+        checked={newPlayer.forward_positions.includes('center')}
+        onChange={() =>
+        setNewPlayer({
+        ...newPlayer,
+        forward_positions: toggleForwardPosition(newPlayer.forward_positions, 'center'),
+        })
+        }
+        />
+        }
+        label={t('players.center')}
+        />
+        <FormControlLabel
+        control={
+        <Checkbox
+        checked={newPlayer.forward_positions.includes('winger')}
+        onChange={() =>
+        setNewPlayer({
+        ...newPlayer,
+        forward_positions: toggleForwardPosition(newPlayer.forward_positions, 'winger'),
+        })
+        }
+        />
+        }
+        label={t('players.winger')}
+        />
+        </Box>
+        )}
             <TextField
               fullWidth
               label={t('players.email')}
@@ -449,24 +521,57 @@ export function PlayersPage() {
             <Typography variant="subtitle1" sx={{ mt: 1 }}>
               {editingPlayer?.name}
             </Typography>
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="edit-player-position-label">{t('players.position')}</InputLabel>
-              <Select
-                labelId="edit-player-position-label"
-                label={t('players.position')}
-                value={editRatings.position}
-                onChange={(e) =>
-                  setEditRatings({
-                    ...editRatings,
-                    position: e.target.value as 'forward' | 'defense' | 'goalie',
-                  })
-                }
-              >
-                <MenuItem value="forward">{t('players.forward')}</MenuItem>
-                <MenuItem value="defense">{t('players.defense')}</MenuItem>
-                <MenuItem value="goalie">{t('players.goalie')}</MenuItem>
-              </Select>
-            </FormControl>
+      <FormControl fullWidth margin="normal">
+      <InputLabel id="edit-player-position-label">{t('players.position')}</InputLabel>
+      <Select
+      labelId="edit-player-position-label"
+      label={t('players.position')}
+      value={editRatings.position}
+      onChange={(e) =>
+      setEditRatings({
+      ...editRatings,
+      position: e.target.value as 'forward' | 'defense' | 'goalie',
+      forward_positions: e.target.value !== 'forward' ? [] : (editRatings.forward_positions.length > 0 ? editRatings.forward_positions : ['center', 'winger']),
+      })
+      }
+      >
+      <MenuItem value="forward">{t('players.forward')}</MenuItem>
+      <MenuItem value="defense">{t('players.defense')}</MenuItem>
+      <MenuItem value="goalie">{t('players.goalie')}</MenuItem>
+      </Select>
+      </FormControl>
+      {editRatings.position === 'forward' && (
+      <Box display="flex" gap={2} mt={1} mb={1}>
+      <FormControlLabel
+      control={
+      <Checkbox
+      checked={editRatings.forward_positions.includes('center')}
+      onChange={() =>
+      setEditRatings({
+      ...editRatings,
+      forward_positions: toggleForwardPosition(editRatings.forward_positions, 'center'),
+      })
+      }
+      />
+      }
+      label={t('players.center')}
+      />
+      <FormControlLabel
+      control={
+      <Checkbox
+      checked={editRatings.forward_positions.includes('winger')}
+      onChange={() =>
+      setEditRatings({
+      ...editRatings,
+      forward_positions: toggleForwardPosition(editRatings.forward_positions, 'winger'),
+      })
+      }
+      />
+      }
+      label={t('players.winger')}
+      />
+      </Box>
+      )}
             <TextField
               fullWidth
               label={`${t('players.offenseWeight')} (0-10)`}
