@@ -125,11 +125,26 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Series table
+    await runAsync(`
+      CREATE TABLE IF NOT EXISTS series (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        league_id INTEGER,
+        name TEXT NOT NULL,
+        best_of INTEGER DEFAULT 1,
+        team1_wins INTEGER DEFAULT 0,
+        team2_wins INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (league_id) REFERENCES leagues(id)
+      )
+    `);
+
     // Games table
     await runAsync(`
       CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         league_id INTEGER,
+        series_id INTEGER,
         date DATE NOT NULL,
         time TEXT,
         location TEXT,
@@ -137,7 +152,24 @@ export async function initializeDatabase() {
         team1_score INTEGER,
         team2_score INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (league_id) REFERENCES leagues(id)
+        FOREIGN KEY (league_id) REFERENCES leagues(id),
+        FOREIGN KEY (series_id) REFERENCES series(id)
+      )
+    `);
+
+    // Teams table
+    await runAsync(`
+      CREATE TABLE IF NOT EXISTS teams (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER,
+        series_id INTEGER,
+        team_number INTEGER NOT NULL,
+        player_id INTEGER NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (series_id) REFERENCES series(id) ON DELETE CASCADE,
+        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+        UNIQUE(game_id, player_id),
+        UNIQUE(series_id, player_id)
       )
     `);
 
@@ -218,6 +250,14 @@ export async function initializeDatabase() {
       await runAsync('ALTER TABLE games ADD COLUMN league_id INTEGER REFERENCES leagues(id)');
     }
 
+    if (!(await columnExists('games', 'series_id'))) {
+      await runAsync('ALTER TABLE games ADD COLUMN series_id INTEGER');
+    }
+
+    if (!(await columnExists('teams', 'series_id'))) {
+      await runAsync('ALTER TABLE teams ADD COLUMN series_id INTEGER');
+    }
+
     // Backfill existing rows into the default league
     await runAsync('UPDATE users SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
     await runAsync('UPDATE players SET league_id = ? WHERE league_id IS NULL', [defaultLeague.id]);
@@ -242,6 +282,9 @@ export async function initializeDatabase() {
     await runAsync('CREATE INDEX IF NOT EXISTS idx_notification_logs_game_id ON notification_logs(game_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_notification_logs_recipient_player_id ON notification_logs(recipient_player_id)');
     await runAsync('CREATE INDEX IF NOT EXISTS idx_notification_logs_created_at ON notification_logs(created_at)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_games_series_id ON games(series_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_teams_series_id ON teams(series_id)');
+    await runAsync('CREATE INDEX IF NOT EXISTS idx_series_league_id ON series(league_id)');
 
     // Backfill player-league memberships from legacy players.league_id.
     await runAsync(`
@@ -263,19 +306,6 @@ export async function initializeDatabase() {
         player_id INTEGER NOT NULL,
         status TEXT DEFAULT 'pending',
         responded_at DATETIME,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-        UNIQUE(game_id, player_id)
-      )
-    `);
-
-    // Teams table
-    await runAsync(`
-      CREATE TABLE IF NOT EXISTS teams (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER NOT NULL,
-        team_number INTEGER NOT NULL,
-        player_id INTEGER NOT NULL,
         FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
         FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
         UNIQUE(game_id, player_id)

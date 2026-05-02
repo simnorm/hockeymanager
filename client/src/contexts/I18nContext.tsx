@@ -29,6 +29,10 @@ type TranslationKey =
   | 'games.none'
   | 'games.createTitle'
   | 'games.date'
+  | 'games.seriesExisting'
+  | 'games.seriesNone'
+  | 'games.seriesCreateName'
+  | 'games.seriesBestOf'
   | 'games.cancel'
   | 'games.create'
   | 'games.status.scheduled'
@@ -75,6 +79,7 @@ type TranslationKey =
   | 'players.failedAddExisting'
   | 'gameDetail.back'
   | 'gameDetail.titlePrefix'
+  | 'gameDetail.series'
   | 'gameDetail.time'
   | 'gameDetail.location'
   | 'gameDetail.finalScore'
@@ -165,6 +170,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'games.none': 'No games scheduled yet',
     'games.createTitle': 'Create New Game',
     'games.date': 'Date',
+    'games.seriesExisting': 'Series (optional)',
+    'games.seriesNone': 'No series',
+    'games.seriesCreateName': 'New series name',
+    'games.seriesBestOf': 'Best of',
     'games.cancel': 'Cancel',
     'games.create': 'Create',
     'games.status.scheduled': 'scheduled',
@@ -213,6 +222,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.titlePrefix': 'Game on',
     'gameDetail.time': 'Time',
     'gameDetail.location': 'Location',
+    'gameDetail.series': 'Series',
     'gameDetail.finalScore': 'Final Score',
     'gameDetail.recordScore': 'Record Score',
     'gameDetail.attendance': 'Attendance',
@@ -300,6 +310,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'games.none': 'Aucun match planifie',
     'games.createTitle': 'Creer un nouveau match',
     'games.date': 'Date',
+    'games.seriesExisting': 'Series (optionnel)',
+    'games.seriesNone': 'Aucune serie',
+    'games.seriesCreateName': 'Nom de la nouvelle serie',
+    'games.seriesBestOf': 'Meilleur de',
     'games.cancel': 'Annuler',
     'games.create': 'Creer',
     'games.status.scheduled': 'planifie',
@@ -348,6 +362,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     'gameDetail.titlePrefix': 'Match du',
     'gameDetail.time': 'Heure',
     'gameDetail.location': 'Lieu',
+    'gameDetail.series': 'Serie',
     'gameDetail.finalScore': 'Score final',
     'gameDetail.recordScore': 'Enregistrer le score',
     'gameDetail.attendance': 'Presence',

@@ -192,14 +192,17 @@ router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest
       return res.status(400).json({ error: 'Both teams must be provided' });
     }
 
-    const game = await getAsync('SELECT id FROM games WHERE id = ? AND league_id = ?', [
+    const game = await getAsync('SELECT id, series_id FROM games WHERE id = ? AND league_id = ?', [
       gameId,
       req.leagueId,
-    ]) as { id: number } | undefined;
+    ]) as { id: number; series_id?: number } | undefined;
 
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
+
+    const targetColumn = game.series_id ? 'series_id' : 'game_id';
+    const targetValue = game.series_id || game.id;
 
     const allPlayerIds = [...teams.team1, ...teams.team2].map((id: unknown) => Number(id));
     const uniquePlayerIds = [...new Set(allPlayerIds)];
@@ -223,16 +226,24 @@ router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest
       }
     }
 
-    // Delete existing teams for this game
-    await runAsync('DELETE FROM teams WHERE game_id = ?', [gameId]);
+    // Delete existing teams for this series or game
+    await runAsync(`DELETE FROM teams WHERE ${targetColumn} = ?`, [targetValue]);
+
+    const insertColumn = game.series_id ? 'series_id' : 'game_id';
 
     // Insert new teams
     for (const playerId of teams.team1) {
-      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [gameId, 1, playerId]);
+      await runAsync(
+        `INSERT INTO teams (${insertColumn}, team_number, player_id) VALUES (?, ?, ?)`,
+        [targetValue, 1, playerId]
+      );
     }
 
     for (const playerId of teams.team2) {
-      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [gameId, 2, playerId]);
+      await runAsync(
+        `INSERT INTO teams (${insertColumn}, team_number, player_id) VALUES (?, ?, ?)`,
+        [targetValue, 2, playerId]
+      );
     }
 
     // Get created teams
@@ -241,9 +252,9 @@ router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest
       FROM teams t
       JOIN players p ON t.player_id = p.id
       JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE t.game_id = ? AND pl.league_id = ?
+      WHERE t.${targetColumn} = ? AND pl.league_id = ?
       ORDER BY t.team_number, p.name
-    `, [gameId, req.leagueId]) as TeamWithPlayer[];
+    `, [targetValue, req.leagueId]) as TeamWithPlayer[];
 
     res.json(createdTeams);
   } catch (error) {
@@ -261,14 +272,17 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
 
     const { gameId } = req.params;
 
-    const game = await getAsync('SELECT id FROM games WHERE id = ? AND league_id = ?', [
+    const game = await getAsync('SELECT id, series_id FROM games WHERE id = ? AND league_id = ?', [
       gameId,
       req.leagueId,
-    ]) as { id: number } | undefined;
+    ]) as { id: number; series_id?: number } | undefined;
 
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
+
+    const targetColumn = game.series_id ? 'series_id' : 'game_id';
+    const targetValue = game.series_id || game.id;
 
     // Build planning teams from active regulars, independent of attendance confirmations.
     const presentPlayers = await allAsync(`
@@ -360,8 +374,8 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
       }
     }
 
-    // Delete existing teams
-    await runAsync('DELETE FROM teams WHERE game_id = ?', [gameId]);
+    // Delete existing teams for this series or game
+    await runAsync(`DELETE FROM teams WHERE ${targetColumn} = ?`, [targetValue]);
 
     const assignedTeam1: RatedPlayer[] = [];
     const assignedTeam2: RatedPlayer[] = [];
@@ -407,12 +421,13 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
       team2Roles
     );
 
+    const insertColumn = game.series_id ? 'series_id' : 'game_id';
     for (const player of assignedTeam1) {
-      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [gameId, 1, player.id]);
+      await runAsync(`INSERT INTO teams (${insertColumn}, team_number, player_id) VALUES (?, ?, ?)`, [targetValue, 1, player.id]);
     }
 
     for (const player of assignedTeam2) {
-      await runAsync('INSERT INTO teams (game_id, team_number, player_id) VALUES (?, ?, ?)', [gameId, 2, player.id]);
+      await runAsync(`INSERT INTO teams (${insertColumn}, team_number, player_id) VALUES (?, ?, ?)`, [targetValue, 2, player.id]);
     }
 
     // Get created teams
@@ -421,9 +436,9 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
       FROM teams t
       JOIN players p ON t.player_id = p.id
       JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE t.game_id = ? AND pl.league_id = ?
+      WHERE t.${targetColumn} = ? AND pl.league_id = ?
       ORDER BY t.team_number, p.name
-    `, [gameId, req.leagueId]) as TeamWithPlayer[];
+    `, [targetValue, req.leagueId]) as TeamWithPlayer[];
 
     res.json(createdTeams);
   } catch (error) {

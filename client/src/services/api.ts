@@ -70,6 +70,11 @@ export const leaguesApi = {
   rename: (leagueId: number, name: string) => api.put(`/leagues/${leagueId}`, { name }),
 };
 
+export const seriesApi = {
+  getAll: () => api.get('/series'),
+  create: (name: string, bestOf: number) => api.post('/series', { name, best_of: bestOf }),
+};
+
 export const notificationsApi = {
   sendTest: (data: { recipientName: string; email?: string; phone?: string; gameId?: number }) =>
     api.post<TestNotificationResponse>('/notifications/test', data),

@@ -7,6 +7,7 @@ import playersRoutes from './routes/players.js';
 import gamesRoutes from './routes/games.js';
 import attendanceRoutes from './routes/attendance.js';
 import teamsRoutes from './routes/teams.js';
+import seriesRoutes from './routes/series.js';
 import leaguesRoutes from './routes/leagues.js';
 import notificationsRoutes from './routes/notifications.js';
 
@@ -28,6 +29,7 @@ app.use('/api/players', playersRoutes);
 app.use('/api/games', gamesRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/teams', teamsRoutes);
+app.use('/api/series', seriesRoutes);
 app.use('/api/leagues', leaguesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 

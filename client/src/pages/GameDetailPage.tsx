@@ -282,6 +282,9 @@ export function GameDetailPage() {
           
           {game.time && <Typography>{t('gameDetail.time')}: {game.time}</Typography>}
           {game.location && <Typography>{t('gameDetail.location')}: {game.location}</Typography>}
+          {game.series && (
+            <Typography>{t('gameDetail.series')}: {game.series.name} ({t('games.seriesBestOf')} {game.series.best_of})</Typography>
+          )}
           
           {game.status === 'completed' && game.team1_score !== undefined && (
             <Typography variant="h5" sx={{ mt: 2 }}>

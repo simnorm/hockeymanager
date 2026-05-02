@@ -47,6 +47,17 @@ export interface Game {
   status: 'scheduled' | 'completed' | 'cancelled';
   team1_score?: number;
   team2_score?: number;
+  series_id?: number;
+  created_at: string;
+}
+
+export interface Series {
+  id: number;
+  league_id: number;
+  name: string;
+  best_of: number;
+  team1_wins: number;
+  team2_wins: number;
   created_at: string;
 }
 
@@ -60,7 +71,8 @@ export interface Attendance {
 
 export interface Team {
   id: number;
-  game_id: number;
+  game_id?: number;
+  series_id?: number;
   team_number: number;
   player_id: number;
 }
@@ -68,6 +80,7 @@ export interface Team {
 export interface GameWithDetails extends Game {
   attendance?: AttendanceWithPlayer[];
   teams?: TeamWithPlayer[];
+  series?: Series;
   notificationLogs?: NotificationLog[];
 }
 

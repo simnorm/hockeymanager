@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { allAsync, getAsync, runAsync } from '../database.js';
-import { Game, GameWithDetails, AttendanceWithPlayer, NotificationLog, TeamWithPlayer } from '../types.js';
+import { Game, Series, GameWithDetails, AttendanceWithPlayer, NotificationLog, TeamWithPlayer } from '../types.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -39,6 +39,11 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       return res.status(404).json({ error: 'Game not found' });
     }
 
+    let series: Series | undefined;
+    if (game.series_id) {
+      series = await getAsync('SELECT * FROM series WHERE id = ? AND league_id = ?', [game.series_id, req.leagueId]) as Series;
+    }
+
     // Get attendance
     const attendance = await allAsync(
       `SELECT
@@ -58,15 +63,17 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       [game.id, game.id, req.leagueId]
     ) as AttendanceWithPlayer[];
 
-    // Get teams
+    // Get teams, from series if game belongs to one
+    const teamTarget = game.series_id ? 't.series_id = ?' : 't.game_id = ?';
+    const teamTargetId = game.series_id || game.id;
     const teams = await allAsync(`
       SELECT t.team_number, t.player_id, p.name as player_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
       JOIN player_leagues pl ON pl.player_id = p.id
-      WHERE t.game_id = ? AND pl.league_id = ?
+      WHERE ${teamTarget} AND pl.league_id = ?
       ORDER BY t.team_number, p.name
-    `, [game.id, req.leagueId]) as TeamWithPlayer[];
+    `, [teamTargetId, req.leagueId]) as TeamWithPlayer[];
 
     const notificationLogs = await allAsync(
       `SELECT
@@ -83,6 +90,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       ...game,
       attendance,
       teams,
+      series,
       notificationLogs,
     };
 
@@ -100,15 +108,24 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
       return res.status(403).json({ error: 'League context required' });
     }
 
-    const { date, time, location } = req.body;
+    const { date, time, location, series_id } = req.body;
 
     if (!date) {
       return res.status(400).json({ error: 'Date is required' });
     }
 
+    let seriesIdValue = null;
+    if (series_id !== undefined && series_id !== null) {
+      const series = await getAsync('SELECT id FROM series WHERE id = ? AND league_id = ?', [series_id, req.leagueId]);
+      if (!series) {
+        return res.status(400).json({ error: 'Series not found for this league' });
+      }
+      seriesIdValue = series_id;
+    }
+
     const result = await runAsync(
-      'INSERT INTO games (league_id, date, time, location) VALUES (?, ?, ?, ?)',
-      [req.leagueId, date, time || null, location || null]
+      'INSERT INTO games (league_id, series_id, date, time, location) VALUES (?, ?, ?, ?, ?)',
+      [req.leagueId, seriesIdValue, date, time || null, location || null]
     );
 
     // Create attendance records for all active players
@@ -142,10 +159,19 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
       return res.status(403).json({ error: 'League context required' });
     }
 
-    const { date, time, location, status, team1_score, team2_score } = req.body;
+    const { date, time, location, status, team1_score, team2_score, series_id } = req.body;
+
+    let seriesIdValue = null;
+    if (series_id !== undefined && series_id !== null) {
+      const series = await getAsync('SELECT id FROM series WHERE id = ? AND league_id = ?', [series_id, req.leagueId]);
+      if (!series) {
+        return res.status(400).json({ error: 'Series not found for this league' });
+      }
+      seriesIdValue = series_id;
+    }
 
     await runAsync(
-      'UPDATE games SET date = ?, time = ?, location = ?, status = ?, team1_score = ?, team2_score = ? WHERE id = ? AND league_id = ?',
+      'UPDATE games SET date = ?, time = ?, location = ?, status = ?, team1_score = ?, team2_score = ?, series_id = ? WHERE id = ? AND league_id = ?',
       [
         date,
         time || null,
@@ -153,6 +179,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
         status,
         team1_score || null,
         team2_score || null,
+        seriesIdValue,
         req.params.id,
         req.leagueId,
       ]

@@ -28,6 +28,16 @@ export interface Player {
   created_at: string;
 }
 
+export interface Series {
+  id: number;
+  league_id: number;
+  name: string;
+  best_of: number;
+  team1_wins: number;
+  team2_wins: number;
+  created_at: string;
+}
+
 export interface Game {
   id: number;
   date: string;
@@ -36,6 +46,8 @@ export interface Game {
   status: 'scheduled' | 'completed' | 'cancelled';
   team1_score?: number;
   team2_score?: number;
+  series_id?: number;
+  series?: Series;
   created_at: string;
 }
 
