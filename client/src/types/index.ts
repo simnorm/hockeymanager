@@ -111,6 +111,8 @@ export interface Team {
   team_number: number;
   player_id: number;
   player_name: string;
+  team_name?: string;
+  position: 'forward' | 'defense' | 'goalie';
 }
 
 export interface GameWithDetails extends Game {

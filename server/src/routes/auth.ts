@@ -47,6 +47,7 @@ function generateInviteCode(): string {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    console.log(`Login attempt for username=${username}`);
 
     const user = await getAsync('SELECT * FROM users WHERE username = ?', [username]) as User;
 
@@ -72,6 +73,7 @@ router.post('/login', async (req, res) => {
       : leagues[0].id;
 
     const token = signToken(user.id, isAdmin, activeLeagueId);
+    console.log(`Login success for userId=${user.id}, league=${activeLeagueId}`);
 
     res.json({
       token,

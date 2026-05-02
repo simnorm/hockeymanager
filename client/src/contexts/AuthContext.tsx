@@ -28,11 +28,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (username: string, password: string) => {
-    const response = await authApi.login(username, password);
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setUser(user);
+    try {
+      console.log('AuthContext.login:', username);
+      const response = await authApi.login(username, password);
+      const { token, user } = response.data;
+      console.log('AuthContext.login success:', { userId: user.id });
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+    } catch (err) {
+      console.error('AuthContext.login error:', err);
+      throw err;
+    }
   };
 
   const completeInvite = async (inviteCode: string, username: string, password: string) => {

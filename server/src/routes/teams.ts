@@ -248,7 +248,7 @@ router.post('/:gameId', authenticateToken, requireAdmin, async (req: AuthRequest
 
     // Get created teams
     const createdTeams = await allAsync(`
-      SELECT t.team_number, t.player_id, p.name as player_name
+      SELECT t.team_number, t.player_id, p.name as player_name, p.position, t.team_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
       JOIN player_leagues pl ON pl.player_id = p.id
@@ -432,7 +432,7 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
 
     // Get created teams
     const createdTeams = await allAsync(`
-      SELECT t.team_number, t.player_id, p.name as player_name
+      SELECT t.team_number, t.player_id, p.name as player_name, p.position, t.team_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
       JOIN player_leagues pl ON pl.player_id = p.id
@@ -443,6 +443,43 @@ router.post('/:gameId/auto-balance', authenticateToken, requireAdmin, async (req
     res.json(createdTeams);
   } catch (error) {
     console.error('Auto-balance teams error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update team names (admin only)
+router.put('/:gameId/team-names', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.leagueId) {
+      return res.status(403).json({ error: 'League context required' });
+    }
+
+    const { gameId } = req.params;
+    const { team1Name, team2Name } = req.body;
+
+    const game = await getAsync('SELECT id, series_id FROM games WHERE id = ? AND league_id = ?', [
+      gameId,
+      req.leagueId,
+    ]) as { id: number; series_id?: number } | undefined;
+
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const targetColumn = game.series_id ? 'series_id' : 'game_id';
+    const targetValue = game.series_id || game.id;
+
+    // Update team names
+    if (team1Name) {
+      await runAsync(`UPDATE teams SET team_name = ? WHERE ${targetColumn} = ? AND team_number = 1`, [team1Name, targetValue]);
+    }
+    if (team2Name) {
+      await runAsync(`UPDATE teams SET team_name = ? WHERE ${targetColumn} = ? AND team_number = 2`, [team2Name, targetValue]);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update team names error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

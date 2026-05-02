@@ -12,14 +12,26 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'League context required' });
     }
 
+    console.log(`Fetching all games for league ${req.leagueId}`);
     const games = await allAsync(
       'SELECT * FROM games WHERE league_id = ? ORDER BY date DESC, time DESC',
       [req.leagueId]
     ) as Game[];
+    console.log(`Found ${games.length} games:`, games.map(g => ({ id: g.id, league_id: g.league_id, date: g.date })));
     res.json(games);
   } catch (error) {
     console.error('Get games error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Debug: Get all games regardless of league (for testing)
+router.get('/debug/all-games', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const allGames = await allAsync('SELECT id, league_id, date FROM games ORDER BY id DESC LIMIT 10') as any[];
+    res.json({ debug: true, games: allGames });
+  } catch (error) {
+    res.status(500).json({ error: 'Debug query failed', details: String(error) });
   }
 });
 
@@ -30,12 +42,25 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       return res.status(403).json({ error: 'League context required' });
     }
 
+    const gameId = parseInt(req.params.id, 10);
+    console.log(`\n=== Fetching game ${gameId} for league ${req.leagueId} ===`);
+    
+    // First check if game exists at all
+    const anyGame = await getAsync('SELECT id, league_id, date FROM games WHERE id = ?', [gameId]) as any;
+    console.log(`Game lookup: ${gameId} ->`, anyGame ? { id: anyGame.id, league_id: anyGame.league_id } : 'NOT FOUND');
+    
     const game = await getAsync('SELECT * FROM games WHERE id = ? AND league_id = ?', [
-      req.params.id,
+      gameId,
       req.leagueId,
     ]) as Game;
 
     if (!game) {
+      if (anyGame) {
+        console.log(`MISMATCH: Game ${gameId} exists in league ${anyGame.league_id} but user is in league ${req.leagueId}`);
+        return res.status(403).json({ error: 'Game exists but not in your current league' });
+      } else {
+        console.log(`Game ${gameId} not found in database`);
+      }
       return res.status(404).json({ error: 'Game not found' });
     }
 
@@ -67,7 +92,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
     const teamTarget = game.series_id ? 't.series_id = ?' : 't.game_id = ?';
     const teamTargetId = game.series_id || game.id;
     const teams = await allAsync(`
-      SELECT t.team_number, t.player_id, p.name as player_name
+      SELECT t.team_number, t.player_id, p.name as player_name, p.position, t.team_name
       FROM teams t
       JOIN players p ON t.player_id = p.id
       JOIN player_leagues pl ON pl.player_id = p.id
@@ -104,14 +129,22 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
 // Create game (admin only)
 router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.leagueId) {
-      return res.status(403).json({ error: 'League context required' });
+    if (!req.leagueId || req.leagueId <= 0) {
+      console.error('Invalid league context:', { userId: req.userId, leagueId: req.leagueId });
+      return res.status(403).json({ error: 'Valid league context required' });
     }
 
     const { date, time, location, series_id } = req.body;
 
     if (!date) {
       return res.status(400).json({ error: 'Date is required' });
+    }
+
+    // Verify league exists
+    const league = await getAsync('SELECT id FROM leagues WHERE id = ?', [req.leagueId]);
+    if (!league) {
+      console.error('League not found:', req.leagueId);
+      return res.status(403).json({ error: 'League not found' });
     }
 
     let seriesIdValue = null;
@@ -123,10 +156,20 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
       seriesIdValue = series_id;
     }
 
+    // Verify league_id will be set in database
+    console.log(`Creating game in league ${req.leagueId} for user ${req.userId}`);
+    
     const result = await runAsync(
       'INSERT INTO games (league_id, series_id, date, time, location) VALUES (?, ?, ?, ?, ?)',
       [req.leagueId, seriesIdValue, date, time || null, location || null]
     );
+
+    if (!result.lastID) {
+      console.error('Failed to get lastID after game insertion');
+      return res.status(500).json({ error: 'Failed to create game' });
+    }
+
+    console.log(`Game created: ID=${result.lastID}, LeagueID=${req.leagueId}`);
 
     // Create attendance records for all active players
     const players = await allAsync(
@@ -145,6 +188,18 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
     }
 
     const game = await getAsync('SELECT * FROM games WHERE id = ?', [result.lastID]) as Game;
+    if (!game) {
+      console.error(`Failed to retrieve created game with ID ${result.lastID}`);
+      return res.status(500).json({ error: 'Failed to retrieve created game' });
+    }
+
+    // Verify game has correct league_id
+    if (game.league_id !== req.leagueId) {
+      console.error(`League mismatch: Game league_id=${game.league_id}, expected=${req.leagueId}`);
+      return res.status(500).json({ error: 'Game created with wrong league context' });
+    }
+
+    console.log(`Game retrieved successfully:`, { id: game.id, league_id: game.league_id, date: game.date });
     res.status(201).json(game);
   } catch (error) {
     console.error('Create game error:', error);
