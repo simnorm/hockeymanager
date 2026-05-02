@@ -44,6 +44,182 @@ async function columnExists(table: string, column: string): Promise<boolean> {
   return columns.some((col) => col.name === column);
 }
 
+// Seed test data
+async function seedTestData() {
+  try {
+    // Check if Test League already exists
+    const testLeague = await getAsync(
+      'SELECT id FROM leagues WHERE name = ?',
+      ['Test League']
+    ) as { id: number } | undefined;
+
+    let testLeagueId: number;
+
+    if (!testLeague) {
+      // Create Test League
+      const result = await runAsync(
+        'INSERT INTO leagues (name) VALUES (?)',
+        ['Test League']
+      );
+      testLeagueId = result.lastID;
+      console.log('Test League created');
+    } else {
+      testLeagueId = testLeague.id;
+      // Check if test data already exists
+      const existingPlayers = await getAsync(
+        'SELECT COUNT(*) as count FROM players WHERE league_id = ?',
+        [testLeagueId]
+      ) as { count: number };
+
+      if (existingPlayers.count > 0) {
+        console.log('Test data already exists, skipping seed');
+        return;
+      }
+    }
+
+    const firstNames = [
+      'Alex', 'Brandon', 'Chris', 'David', 'Eric', 'Frank', 'George', 'Henry', 'Isaac', 'James',
+      'Kevin', 'Liam', 'Michael', 'Nathan', 'Oliver', 'Patrick', 'Quinn', 'Ryan', 'Scott', 'Tyler',
+      'Vincent', 'William', 'Xavier', 'Zachary',
+    ];
+
+    const lastNames = [
+      'Anderson', 'Bennett', 'Carter', 'Davis', 'Evans', 'Fisher', 'Garcia', 'Harrison', 'Jackson', 'King',
+      'Lewis', 'Martinez', 'Nelson', 'O\'Brien', 'Patterson', 'Quinn', 'Richardson', 'Smith', 'Taylor', 'Unger',
+      'Vance', 'Walker', 'Young', 'Zimmerman',
+    ];
+
+    const getRandomName = () => {
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+      return `${firstName} ${lastName}`;
+    };
+
+    const getRandomRating = (min = 3, max = 10) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const getRandomEmail = (name: string) => `${name.toLowerCase().replace(/\s+/g, '.')}@exemple.com`;
+
+    // Create 22 regular players: 12 forwards, 8 defensemen, 2 goalies
+    const regularPlayers = [];
+
+    // 12 Forwards
+    for (let i = 0; i < 12; i++) {
+      regularPlayers.push({
+        name: getRandomName(),
+        position: 'forward' as const,
+        is_regular: 1,
+        offense_weight: getRandomRating(6, 10),
+        defense_weight: getRandomRating(4, 8),
+        defense_rating: getRandomRating(4, 7),
+        forward_rating: getRandomRating(6, 10),
+        goalie_rating: getRandomRating(2, 4),
+      });
+    }
+
+    // 8 Defensemen
+    for (let i = 0; i < 8; i++) {
+      regularPlayers.push({
+        name: getRandomName(),
+        position: 'defense' as const,
+        is_regular: 1,
+        offense_weight: getRandomRating(4, 7),
+        defense_weight: getRandomRating(6, 10),
+        defense_rating: getRandomRating(6, 10),
+        forward_rating: getRandomRating(4, 8),
+        goalie_rating: getRandomRating(2, 4),
+      });
+    }
+
+    // 2 Goalies
+    for (let i = 0; i < 2; i++) {
+      regularPlayers.push({
+        name: getRandomName(),
+        position: 'goalie' as const,
+        is_regular: 1,
+        offense_weight: getRandomRating(2, 4),
+        defense_weight: getRandomRating(5, 8),
+        defense_rating: getRandomRating(5, 9),
+        forward_rating: getRandomRating(2, 5),
+        goalie_rating: getRandomRating(7, 10),
+      });
+    }
+
+    // Create subs: 3 forwards, 2 defensemen, 1 goalie
+    const subPlayers = [];
+
+    // 3 Forward subs
+    for (let i = 0; i < 3; i++) {
+      subPlayers.push({
+        name: getRandomName(),
+        position: 'forward' as const,
+        is_regular: 0,
+        offense_weight: getRandomRating(5, 9),
+        defense_weight: getRandomRating(3, 7),
+        defense_rating: getRandomRating(3, 6),
+        forward_rating: getRandomRating(5, 9),
+        goalie_rating: getRandomRating(2, 3),
+      });
+    }
+
+    // 2 Defense subs
+    for (let i = 0; i < 2; i++) {
+      subPlayers.push({
+        name: getRandomName(),
+        position: 'defense' as const,
+        is_regular: 0,
+        offense_weight: getRandomRating(3, 6),
+        defense_weight: getRandomRating(5, 9),
+        defense_rating: getRandomRating(5, 9),
+        forward_rating: getRandomRating(3, 7),
+        goalie_rating: getRandomRating(2, 3),
+      });
+    }
+
+    // 1 Goalie sub
+    subPlayers.push({
+      name: getRandomName(),
+      position: 'goalie' as const,
+      is_regular: 0,
+      offense_weight: getRandomRating(2, 3),
+      defense_weight: getRandomRating(4, 7),
+      defense_rating: getRandomRating(4, 7),
+      forward_rating: getRandomRating(2, 4),
+      goalie_rating: getRandomRating(6, 9),
+    });
+
+    const allPlayers = [...regularPlayers, ...subPlayers];
+
+    // Insert all players
+    for (const player of allPlayers) {
+      const result = await runAsync(
+        `INSERT INTO players
+        (league_id, name, position, email, is_regular, offense_weight, defense_weight, defense_rating, forward_rating, goalie_rating)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          testLeagueId,
+          player.name,
+          player.position,
+          getRandomEmail(player.name),
+          player.is_regular,
+          player.offense_weight,
+          player.defense_weight,
+          player.defense_rating,
+          player.forward_rating,
+          player.goalie_rating,
+        ]
+      );
+
+      await runAsync('INSERT INTO player_leagues (player_id, league_id) VALUES (?, ?)', [
+        result.lastID,
+        testLeagueId,
+      ]);
+    }
+
+    console.log(`Test data seeded: ${allPlayers.length} players created (22 regulars: 12F+8D+2G + 6 subs)`);
+  } catch (error) {
+    console.error('Error seeding test data:', error);
+  }
+}
+
 // Initialize database schema
 export async function initializeDatabase() {
   try {
@@ -345,6 +521,11 @@ export async function initializeDatabase() {
         defaultLeague.id,
       ]);
       console.log('Default admin user created (username: admin, password: admin123)');
+    }
+
+    // Seed test data if enabled via environment variable
+    if (process.env.SEED_TEST_DATA === 'true') {
+      await seedTestData();
     }
 
     console.log('Database initialized successfully');
